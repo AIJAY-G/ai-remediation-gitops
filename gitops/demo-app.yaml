@@ -13,15 +13,15 @@ spec:
       labels:
         app: demo-app
       annotations:
-        ai-remediation/restarted-at: '1790832667'
+        ai-remediation/restarted-at: '1790833800'
     spec:
       containers:
-        - name: nginx
-          image: nginx:latest
-          command:
-            - /bin/sh
-            - -c
-            - echo intentional failure; exit 1
+      - name: nginx
+        image: nginx:latest
+        command:
+        - nginx
+        - -g
+        - daemon off;
 ---
 apiVersion: v1
 kind: Service
