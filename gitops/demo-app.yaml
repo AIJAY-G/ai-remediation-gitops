@@ -19,9 +19,9 @@ spec:
       - name: nginx
         image: nginx:latest
         command:
-        - nginx
-        - -g
-        - daemon off;
+          - /bin/sh
+          - -c
+          - echo intentional failure; exit 1
 ---
 apiVersion: v1
 kind: Service
