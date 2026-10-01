@@ -13,13 +13,17 @@ spec:
       labels:
         app: demo-app
       annotations:
-        ai-remediation/restarted-at: '1790830661'
+        ai-remediation/restarted-at: '1790830908'
     spec:
       containers:
       - name: nginx
         image: nginx:latest
         ports:
         - containerPort: 80
+        command:
+        - nginx
+        - -g
+        - daemon off;
 ---
 apiVersion: v1
 kind: Service
