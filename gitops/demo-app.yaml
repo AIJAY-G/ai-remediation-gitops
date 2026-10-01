@@ -14,16 +14,16 @@ spec:
         app: demo-app
       annotations:
         ai-remediation/restarted-at: '1790833800'
-      spec:
-        containers:
+    spec:
+      containers:
         - name: nginx
           image: nginx:latest
           command:
-          - /bin/sh
-          - -c
-          - echo intentional failure; exit 1
-    spec:
-      containers: []
+            - /bin/sh
+            - -c
+            - echo intentional failure; exit 1
+          ports:
+            - containerPort: 80
 ---
 apiVersion: v1
 kind: Service
@@ -34,6 +34,6 @@ spec:
   selector:
     app: demo-app
   ports:
-  - port: 80
-    targetPort: 80
+    - port: 80
+      targetPort: 80
   type: ClusterIP
