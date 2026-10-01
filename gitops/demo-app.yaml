@@ -12,6 +12,8 @@ spec:
     metadata:
       labels:
         app: demo-app
+      annotations:
+        ai-remediation/restarted-at: authorized
     spec:
       containers:
         - name: nginx
