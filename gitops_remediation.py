@@ -1,13 +1,26 @@
+
 from pathlib import Path
 import subprocess
 import time
 import yaml
 
 MANIFEST = Path("gitops/demo-app.yaml")
+EXPECTED_DEPLOYMENT = "demo-app"
+EXPECTED_CONTAINER = "nginx"
 
 
 def run_command(command):
     subprocess.run(command, check=True)
+
+
+def get_current_branch():
+    result = subprocess.run(
+        ["git", "branch", "--show-current"],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    return result.stdout.strip()
 
 
 def apply_gitops_remediation(action):
@@ -19,85 +32,77 @@ def apply_gitops_remediation(action):
         print(f"GitOps manifest not found: {MANIFEST}")
         return False
 
-    content = MANIFEST.read_text()
+    branch = get_current_branch()
 
-    documents = list(yaml.safe_load_all(content))
+    # Never allow this development workflow to push to main.
+    if not branch or branch == "main":
+        print("Refusing execution: use a development branch.")
+        return False
+
+    # Protect unrelated staged changes from being included.
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"]
+    )
+
+    if staged.returncode != 0:
+        print("Unrelated staged changes detected. Commit or unstage them first.")
+        return False
+
+    documents = list(
+        yaml.safe_load_all(MANIFEST.read_text(encoding="utf-8"))
+    )
 
     deployment_found = False
+    container_found = False
 
     for doc in documents:
-
         if not doc:
             continue
 
         if (
             doc.get("kind") == "Deployment"
-            and doc.get("metadata", {}).get("name") == "demo-app"
+            and doc.get("metadata", {}).get("name") == EXPECTED_DEPLOYMENT
         ):
-
             deployment_found = True
 
-            template = doc.setdefault(
-                "spec", {}
-            ).setdefault(
-                "template", {}
-            )
+            template = doc.setdefault("spec", {}).setdefault("template", {})
+            metadata = template.setdefault("metadata", {})
+            annotations = metadata.setdefault("annotations", {})
 
-            metadata = template.setdefault(
-                "metadata", {}
-            )
-
-            annotations = metadata.setdefault(
-                "annotations", {}
-            )
-
-            # -------------------------------------------------
-            # Explicitly define the normal NGINX startup command
-            # -------------------------------------------------
-            containers = template.setdefault(
-                "spec", {}
-            ).setdefault(
+            containers = template.setdefault("spec", {}).setdefault(
                 "containers", []
             )
 
             for container in containers:
+                if container.get("name") == EXPECTED_CONTAINER:
+                    container_found = True
 
-                if container.get("name") == "nginx":
-
-                    # Remove any failure command and explicitly
-                    # define the normal nginx startup command.
+                    # Restore the expected NGINX startup command.
                     container["command"] = [
                         "nginx",
                         "-g",
                         "daemon off;"
                     ]
 
-                    # Unique annotation forces a new pod.
-                    annotations[
-                        "ai-remediation/restarted-at"
-                    ] = str(int(time.time()))
+                    annotations["ai-remediation/restarted-at"] = str(
+                        int(time.time())
+                    )
 
-    if not deployment_found:
-        print("Deployment demo-app not found in GitOps manifest.")
+    if not deployment_found or not container_found:
+        print("Expected Deployment or NGINX container not found.")
         return False
 
-    # ---------------------------------------------------------
-    # Write desired state
-    # ---------------------------------------------------------
-    with MANIFEST.open("w") as file:
+    # Write the updated desired state.
+    with MANIFEST.open("w", encoding="utf-8", newline="\n") as file:
         yaml.safe_dump_all(
             documents,
             file,
             sort_keys=False
         )
 
-    print("GitOps manifest updated.")
+    print(f"GitOps manifest updated on branch: {branch}")
 
-    # ---------------------------------------------------------
-    # Validate Kubernetes YAML
-    # ---------------------------------------------------------
-    print("Validating GitOps manifest...")
-
+    # Validate manifest syntax and Kubernetes schema.
     run_command([
         "kubectl",
         "apply",
@@ -106,18 +111,29 @@ def apply_gitops_remediation(action):
         str(MANIFEST)
     ])
 
-    # ---------------------------------------------------------
-    # Stage
-    # ---------------------------------------------------------
+    # Stage only the intended manifest.
     run_command([
         "git",
         "add",
+        "--",
         str(MANIFEST)
     ])
 
-    # ---------------------------------------------------------
-    # Check for Git change
-    # ---------------------------------------------------------
+    # Confirm that only the intended file is staged.
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only"],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+
+    staged_files = result.stdout.splitlines()
+
+    if staged_files != [MANIFEST.as_posix()]:
+        print("Unexpected staged files detected. Aborting commit.")
+        return False
+
+    # Check whether a manifest change exists.
     result = subprocess.run(
         ["git", "diff", "--cached", "--quiet"]
     )
@@ -126,9 +142,7 @@ def apply_gitops_remediation(action):
         print("No GitOps manifest change required.")
         return True
 
-    # ---------------------------------------------------------
-    # Commit
-    # ---------------------------------------------------------
+    # Commit and push only to the current development branch.
     run_command([
         "git",
         "commit",
@@ -136,18 +150,14 @@ def apply_gitops_remediation(action):
         "Apply authorized remediation"
     ])
 
-    # ---------------------------------------------------------
-    # Push
-    # ---------------------------------------------------------
     run_command([
         "git",
         "push",
         "origin",
-        "main"
+        branch
     ])
 
-    print("GitOps remediation committed and pushed.")
-
+    print(f"GitOps remediation pushed to {branch}.")
     return True
 
 
