@@ -1,0 +1,9 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: nginx
+          command:
+            - /bin/sh
+            - -c
+            - echo intentional failure; exit 1

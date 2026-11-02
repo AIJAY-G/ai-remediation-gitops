@@ -1,13 +1,17 @@
 def generate_remediation(incident):
+    if isinstance(incident, dict):
+        incident_type = incident.get("incident_type", "")
+    else:
+        incident_type = incident
 
     # Pod failure / restart incidents
-    if incident in [
+    if incident_type in [
         "pod_crash",
         "pod_failure",
         "pod_restart"
     ]:
         return {
-            "incident": incident,
+            "incident": incident_type,
             "action": "restart_pod",
             "description": "Restart the affected Kubernetes pod",
             "confidence": 0.90,
@@ -18,9 +22,9 @@ def generate_remediation(incident):
         }
 
     # Deployment failure
-    if incident == "deployment_failure":
+    if incident_type == "deployment_failure":
         return {
-            "incident": incident,
+            "incident": incident_type,
             "action": "rollback_deployment",
             "description": "Rollback the affected deployment",
             "confidence": 0.70,
@@ -32,7 +36,7 @@ def generate_remediation(incident):
 
     # Unknown incident
     return {
-        "incident": incident,
+        "incident": incident_type,
         "action": "unknown",
         "description": "No safe remediation identified",
         "confidence": 0.40,
@@ -44,7 +48,6 @@ def generate_remediation(incident):
 
 
 if __name__ == "__main__":
-
     proposal = generate_remediation("pod_failure")
 
     print("LLM Remediation Proposal")

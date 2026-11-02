@@ -1,4 +1,4 @@
-from k8s_monitor import detect_incident
+from k8s_monitor import detect_incident, select_primary_incident
 from llm_proposal import generate_remediation
 from risk_engine import calculate_risk
 from gitops_remediation import apply_gitops_remediation
@@ -19,33 +19,27 @@ def main():
     print(f"Detected {len(incidents)} incident(s)")
 
     # Select the primary incident for remediation analysis
-    primary_incident = next(
-        (
-            item
-            for item in incidents
-            if item["incident_type"] == "pod_failure"
-        ),
-        incidents[0]
-    )
+    primary_incident = select_primary_incident(incidents)
 
     print()
     print("Primary Incident")
     print("----------------")
-    print(f"Type: {primary_incident['incident_type']}")
-    print(f"Severity: {primary_incident['severity']}")
+    print(f"Type: {primary_incident.get('incident_type', 'unknown')}")
+    print(f"Severity: {primary_incident.get('severity', 'unknown')}")
     print(
         f"Resource: "
-        f"{primary_incident['resource_type']}/"
-        f"{primary_incident['resource_name']}"
+        f"{primary_incident.get('resource_type', 'unknown')}/"
+        f"{primary_incident.get('resource_name', 'unknown')}"
     )
+    evidence = primary_incident.get("evidence", {})
     print(
         f"Failure Reason: "
-        f"{primary_incident['evidence'].get('failure_reason', 'N/A')}"
+        f"{evidence.get('failure_reason', 'N/A')}"
     )
 
     # 2. Generate remediation proposal
     proposal = generate_remediation(
-        primary_incident["incident_type"]
+        primary_incident.get("incident_type", "")
     )
 
     print()
@@ -91,12 +85,12 @@ def main():
     print()
     print("Executing authorized GitOps remediation...")
 
-    success = apply_gitops_remediation(
+    result = apply_gitops_remediation(
         proposal["action"]
     )
 
-    if not success:
-        print("GitOps remediation failed.")
+    if not result:
+        print(f"GitOps remediation failed: {getattr(result, 'message', 'unknown error')}")
         return
 
     # 6. Post-remediation validation
@@ -110,6 +104,8 @@ def main():
     validation_success = validate_remediation(
         namespace="ai-remediation",
         deployment_name="demo-app",
+        expected_commit=getattr(result, "commit", None),
+        expected_branch=getattr(result, "branch", None),
         timeout=300,
         interval=5
     )

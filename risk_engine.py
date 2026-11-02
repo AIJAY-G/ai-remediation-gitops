@@ -1,5 +1,5 @@
 from llm_proposal import generate_remediation
-from k8s_monitor import detect_incident
+from k8s_monitor import detect_incident, select_primary_incident
 
 
 def calculate_risk(confidence, uncertainty, policy_compliance,
@@ -26,16 +26,29 @@ def calculate_risk(confidence, uncertainty, policy_compliance,
 if __name__ == "__main__":
 
     # Detect real incident from Kubernetes
-    incident = detect_incident()
+    incidents = detect_incident()
 
-    if not incident:
+    if not incidents:
         print("No incident detected")
-        exit()
+        exit(0)
 
-    print(f"Incident detected: {incident}")
+    primary_incident = select_primary_incident(incidents)
+    incident_type = (
+        primary_incident.get("incident_type")
+        if isinstance(primary_incident, dict)
+        else primary_incident
+    )
+
+    resource_name = (
+        primary_incident.get("resource_name", "unknown")
+        if isinstance(primary_incident, dict)
+        else "unknown"
+    )
+
+    print(f"Incident detected: {incident_type} (Resource: {resource_name})")
 
     # Generate remediation proposal
-    proposal = generate_remediation(incident)
+    proposal = generate_remediation(incident_type)
 
     # Calculate risk
     risk, decision = calculate_risk(
