@@ -1,0 +1,491 @@
+================================================================================
+EVIDENCE ARTIFACT: 01_unit_and_integration_tests.txt
+CATEGORY: Automated mocked unit/integration test
+DATE: 2026-11-02
+DESCRIPTION: Full suite execution of 74 unit and integration tests.
+COMMAND: python -m unittest discover -s tests -v
+================================================================================
+
+Human approval required.
+[LEGACY WARNING] Executing direct Kubernetes mutation (bypassing GitOps)...
+Kubernetes API error during direct remediation: (500)
+Reason: Server Error
+
+Human approval required.
+[LEGACY WARNING] Executing direct Kubernetes mutation (bypassing GitOps)...
+Remediation executed (direct Kubernetes patch): restart_pod
+Human approval required.
+Remediation not executed.
+Human approval: DENIED
+Remediation blocked.
+Authorization Decision: REJECT
+GitOps manifest updated on branch: implementation-baseline (annotation: new)
+Git push failed to branch 'implementation-baseline': Network error: connection refused
+Commit abc1234 is not an ancestor of origin/implementation-baseline.
+Git fetch failed for +refs/heads/implementation-baseline:refs/remotes/origin/implementation-baseline: fatal: unable to access: Could not resolve host
+Invalid Git branch name rejected: 'invalid..branch'
+Remote tracking ref 'origin/feature-test' not found or invalid.
+GitOps manifest updated on branch: implementation-baseline (annotation: new)
+No desired-state change was created for restart_pod remediation.
+Refusing execution: active branch must be a development branch (not main or detached).
+Refusing execution: active branch must be a development branch (not main or detached).
+Unrelated staged changes detected. Commit or unstage them first.
+GitOps manifest updated on branch: implementation-baseline (annotation: new)
+Git push could not be confirmed on origin/implementation-baseline for commit abc1234.
+Unsupported remediation: invalid_action
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Action: restart_pod
+Description: Restart the failed pod.
+
+Risk Assessment
+----------------
+Risk Score: 0.10
+Risk Engine Decision: AUTO_EXECUTE
+
+Authorization Safeguard
+-----------------------
+LLM-generated risk scores require human verification.
+Effective Decision: HUMAN_APPROVAL
+Human approval denied. No remediation executed.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Action: restart_pod
+Description: Restart the failed pod.
+
+Risk Assessment
+----------------
+Risk Score: 0.10
+Risk Engine Decision: AUTO_EXECUTE
+
+Authorization Safeguard
+-----------------------
+LLM-generated risk scores require human verification.
+Effective Decision: HUMAN_APPROVAL
+Human approval granted.
+
+Executing authorized GitOps remediation...
+
+Waiting for Kubernetes reconciliation...
+
+Post-Remediation Validation
+---------------------------
+
+Remediation completed successfully.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Action: restart_pod
+Description: Restart the failed pod.
+
+Risk Assessment
+----------------
+Risk Score: 0.40
+Risk Engine Decision: HUMAN_APPROVAL
+
+Authorization Safeguard
+-----------------------
+LLM-generated risk scores require human verification.
+Effective Decision: HUMAN_APPROVAL
+Human approval granted.
+
+Executing authorized GitOps remediation...
+GitOps remediation failed: Git push failed
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Action: restart_pod
+Description: Restart the failed pod.
+
+Risk Assessment
+----------------
+Risk Score: 0.40
+Risk Engine Decision: HUMAN_APPROVAL
+
+Authorization Safeguard
+-----------------------
+LLM-generated risk scores require human verification.
+Effective Decision: HUMAN_APPROVAL
+Human approval denied. No remediation executed.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Action: restart_pod
+Description: Restart the failed pod.
+
+Risk Assessment
+----------------
+Risk Score: 0.40
+Risk Engine Decision: HUMAN_APPROVAL
+
+Authorization Safeguard
+-----------------------
+LLM-generated risk scores require human verification.
+Effective Decision: HUMAN_APPROVAL
+Human approval denied. No remediation executed.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Action: restart_pod
+Description: Restart the failed pod.
+
+Risk Assessment
+----------------
+Risk Score: 0.40
+Risk Engine Decision: HUMAN_APPROVAL
+
+Authorization Safeguard
+-----------------------
+LLM-generated risk scores require human verification.
+Effective Decision: HUMAN_APPROVAL
+Human approval granted.
+
+Executing authorized GitOps remediation...
+
+Waiting for Kubernetes reconciliation...
+
+Post-Remediation Validation
+---------------------------
+
+Remediation completed successfully.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Action: restart_pod
+Description: Restart the failed pod.
+
+Risk Assessment
+----------------
+Risk Score: 0.40
+Risk Engine Decision: HUMAN_APPROVAL
+
+Authorization Safeguard
+-----------------------
+LLM-generated risk scores require human verification.
+Effective Decision: HUMAN_APPROVAL
+Human approval granted.
+
+Executing authorized GitOps remediation...
+
+Waiting for Kubernetes reconciliation...
+
+Post-Remediation Validation
+---------------------------
+
+Remediation completed successfully.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+Remediation proposal rejected: LLM response has missing or unexpected fields.
+No remediation will be executed.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+Remediation proposal rejected: Invalid Ollama response: Expecting value
+No remediation will be executed.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+Remediation proposal rejected: Unsupported remediation action: delete_namespace
+No remediation will be executed.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+Remediation proposal rejected: Connection refused
+No remediation will be executed.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+Remediation proposal rejected: Unsupported incident type: unknown
+No remediation will be executed.
+=== AI Kubernetes Remediation Authorization ===
+
+No incident detected.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+No valid primary incident could be selected.
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 1 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/demo-app-xyz
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Action: restart_pod
+Description: Restart the failed pod.
+
+Risk Assessment
+----------------
+Risk Score: 0.80
+Risk Engine Decision: REJECT
+
+Remediation rejected by risk assessment.
+Checking GitOps and Kubernetes remediation status...
+Expected remediation commit: abcdef1
+Expected target branch: implementation-baseline
+Validation: FAILED - Branch mismatch: Argo CD configured targetRevision is 'main', but expected branch is 'implementation-baseline'.
+Checking GitOps and Kubernetes remediation status...
+Expected remediation commit: abcdef1
+Expected target branch: implementation-baseline
+Argo CD: sync=Synced, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+
+Validation: SUCCESS
+GitOps and Kubernetes remediation completed successfully.
+Verified synchronized commit: abcdef1234567890abcdef1234567890abcdef12
+Failed to load Kubernetes configuration: kubeconfig not found
+Checking GitOps and Kubernetes remediation status...
+Argo CD Application 'ai-remediation' not found in namespace 'argocd'.
+Argo CD: sync=Unknown, health=Unknown | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD Application 'ai-remediation' not found in namespace 'argocd'.
+Argo CD: sync=Unknown, health=Unknown | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD Application 'ai-remediation' not found in namespace 'argocd'.
+Argo CD: sync=Unknown, health=Unknown | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD Application 'ai-remediation' not found in namespace 'argocd'.
+Argo CD: sync=Unknown, health=Unknown | Deployment: ready=1/1, updated=1/1, available=1/1
+
+Validation: FAILED
+Remediation did not become healthy and synchronized within timeout.
+Checking GitOps and Kubernetes remediation status...
+Deployment 'demo-app' not found in namespace 'ai-remediation'.
+Argo CD: sync=Synced, rev=abc1234, health=Healthy | Deployment: ready=0/1, updated=0/1, available=0/1
+Deployment 'demo-app' not found in namespace 'ai-remediation'.
+Argo CD: sync=Synced, rev=abc1234, health=Healthy | Deployment: ready=0/1, updated=0/1, available=0/1
+Deployment 'demo-app' not found in namespace 'ai-remediation'.
+Argo CD: sync=Synced, rev=abc1234, health=Healthy | Deployment: ready=0/1, updated=0/1, available=0/1
+Deployment 'demo-app' not found in namespace 'ai-remediation'.
+Argo CD: sync=Synced, rev=abc1234, health=Healthy | Deployment: ready=0/1, updated=0/1, available=0/1
+
+Validation: FAILED
+Remediation did not become healthy and synchronized within timeout.
+Checking GitOps and Kubernetes remediation status...
+Expected remediation commit: 2222222
+Expected target branch: implementation-baseline
+Argo CD: sync=Synced, rev=1111111 (matches expected=False), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD: sync=Synced, rev=1111111 (matches expected=False), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD: sync=Synced, rev=1111111 (matches expected=False), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD: sync=Synced, rev=1111111 (matches expected=False), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+
+Validation: FAILED
+Remediation did not become healthy and synchronized within timeout.
+Checking GitOps and Kubernetes remediation status...
+Expected remediation commit: abcdef1
+Expected target branch: implementation-baseline
+Argo CD: sync=OutOfSync, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD: sync=OutOfSync, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD: sync=OutOfSync, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+Argo CD: sync=OutOfSync, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=1/1, updated=1/1, available=1/1
+
+Validation: FAILED
+Remediation did not become healthy and synchronized within timeout.
+Checking GitOps and Kubernetes remediation status...
+Expected remediation commit: abcdef1
+Expected target branch: implementation-baseline
+Argo CD: sync=Synced, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=0/1, updated=1/1, available=0/1
+Argo CD: sync=Synced, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=0/1, updated=1/1, available=0/1
+Argo CD: sync=Synced, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=0/1, updated=1/1, available=0/1
+Argo CD: sync=Synced, rev=abcdef1 (matches expected=True), health=Healthy | Deployment: ready=0/1, updated=1/1, available=0/1
+
+Validation: FAILED
+Remediation did not become healthy and synchronized within timeout.
+test_backward_compatibility_alias (test_executor.TestLegacyExecutor.test_backward_compatibility_alias) ... ok
+test_direct_remediation_handles_api_exception (test_executor.TestLegacyExecutor.test_direct_remediation_handles_api_exception) ... ok
+test_direct_remediation_success (test_executor.TestLegacyExecutor.test_direct_remediation_success) ... ok
+test_human_approval_denied_blocks_execution (test_executor.TestLegacyExecutor.test_human_approval_denied_blocks_execution) ... ok
+test_reject_decision_blocks_execution (test_executor.TestLegacyExecutor.test_reject_decision_blocks_execution) ... ok
+test_git_push_failure_cannot_return_success (test_gitops_remediation.TestGitOpsRemediation.test_git_push_failure_cannot_return_success) ... ok
+test_is_commit_pushed_commit_is_ancestor_of_remote_branch (test_gitops_remediation.TestGitOpsRemediation.test_is_commit_pushed_commit_is_ancestor_of_remote_branch) ... ok
+test_is_commit_pushed_commit_is_not_ancestor_of_remote_branch (test_gitops_remediation.TestGitOpsRemediation.test_is_commit_pushed_commit_is_not_ancestor_of_remote_branch) ... ok
+test_is_commit_pushed_empty_or_invalid_inputs_return_false (test_gitops_remediation.TestGitOpsRemediation.test_is_commit_pushed_empty_or_invalid_inputs_return_false) ... ok
+test_is_commit_pushed_fetch_failure_returns_false (test_gitops_remediation.TestGitOpsRemediation.test_is_commit_pushed_fetch_failure_returns_false) ... ok
+test_is_commit_pushed_invalid_branch_name_rejected (test_gitops_remediation.TestGitOpsRemediation.test_is_commit_pushed_invalid_branch_name_rejected) ... ok
+test_is_commit_pushed_missing_remote_tracking_ref_returns_false (test_gitops_remediation.TestGitOpsRemediation.test_is_commit_pushed_missing_remote_tracking_ref_returns_false) ... ok
+test_is_commit_pushed_successful_fetch_with_explicit_refspec (test_gitops_remediation.TestGitOpsRemediation.test_is_commit_pushed_successful_fetch_with_explicit_refspec) ... ok
+test_is_valid_branch_name (test_gitops_remediation.TestGitOpsRemediation.test_is_valid_branch_name) ... ok
+test_no_desired_state_change_cannot_return_success (test_gitops_remediation.TestGitOpsRemediation.test_no_desired_state_change_cannot_return_success) ... ok
+test_refuses_execution_on_empty_branch (test_gitops_remediation.TestGitOpsRemediation.test_refuses_execution_on_empty_branch) ... ok
+test_refuses_execution_on_main_branch (test_gitops_remediation.TestGitOpsRemediation.test_refuses_execution_on_main_branch) ... ok
+test_refuses_execution_with_unrelated_staged_changes (test_gitops_remediation.TestGitOpsRemediation.test_refuses_execution_with_unrelated_staged_changes) ... ok
+test_remediation_result_bool_and_fields (test_gitops_remediation.TestGitOpsRemediation.test_remediation_result_bool_and_fields) ... ok
+test_two_consecutive_restart_requests_produce_different_annotations (test_gitops_remediation.TestGitOpsRemediation.test_two_consecutive_restart_requests_produce_different_annotations) ... ok
+test_unpushed_local_commit_cannot_be_accepted (test_gitops_remediation.TestGitOpsRemediation.test_unpushed_local_commit_cannot_be_accepted) ... ok
+test_unsupported_action_rejected (test_gitops_remediation.TestGitOpsRemediation.test_unsupported_action_rejected) ... ok
+test_empty_list_returns_none (test_incident_selection.TestIncidentSelection.test_empty_list_returns_none) ... ok
+test_first_incident_selected_when_no_pod_failure (test_incident_selection.TestIncidentSelection.test_first_incident_selected_when_no_pod_failure) ... ok
+test_handles_non_dict_elements_defensively (test_incident_selection.TestIncidentSelection.test_handles_non_dict_elements_defensively) ... ok
+test_pod_failure_prioritized_over_others (test_incident_selection.TestIncidentSelection.test_pod_failure_prioritized_over_others) ... ok
+test_single_pod_failure_selected (test_incident_selection.TestIncidentSelection.test_single_pod_failure_selected) ... ok
+test_dict_incident_input (test_llm_proposal.TestOllamaIntegration.test_dict_incident_input) ... ok
+test_invalid_ollama_json_response (test_llm_proposal.TestOllamaIntegration.test_invalid_ollama_json_response) ... ok
+test_ollama_connection_error (test_llm_proposal.TestOllamaIntegration.test_ollama_connection_error) ... ok
+test_successful_ollama_response (test_llm_proposal.TestOllamaIntegration.test_successful_ollama_response) ... ok
+test_unsupported_incident_is_rejected_before_api_call (test_llm_proposal.TestOllamaIntegration.test_unsupported_incident_is_rejected_before_api_call) ... ok
+test_boolean_score_is_rejected (test_llm_proposal.TestProposalValidation.test_boolean_score_is_rejected) ... ok
+test_empty_description_is_rejected (test_llm_proposal.TestProposalValidation.test_empty_description_is_rejected) ... ok
+test_mismatched_incident_is_rejected (test_llm_proposal.TestProposalValidation.test_mismatched_incident_is_rejected) ... ok
+test_missing_field_is_rejected (test_llm_proposal.TestProposalValidation.test_missing_field_is_rejected) ... ok
+test_nan_score_is_rejected (test_llm_proposal.TestProposalValidation.test_nan_score_is_rejected) ... ok
+test_negative_score_is_rejected (test_llm_proposal.TestProposalValidation.test_negative_score_is_rejected) ... ok
+test_out_of_range_score_is_rejected (test_llm_proposal.TestProposalValidation.test_out_of_range_score_is_rejected) ... ok
+test_unexpected_field_is_rejected (test_llm_proposal.TestProposalValidation.test_unexpected_field_is_rejected) ... ok
+test_unsupported_action_is_rejected (test_llm_proposal.TestProposalValidation.test_unsupported_action_is_rejected) ... ok
+test_valid_proposal_is_accepted (test_llm_proposal.TestProposalValidation.test_valid_proposal_is_accepted) ... ok
+test_auto_execute_denied_blocks_execution (test_main_workflow.TestAutoExecuteDowngrade.test_auto_execute_denied_blocks_execution)
+Even AUTO_EXECUTE can be denied by the human. ... ok
+test_auto_execute_still_requires_human_approval (test_main_workflow.TestAutoExecuteDowngrade.test_auto_execute_still_requires_human_approval)
+Human input must be solicited even when risk is AUTO_EXECUTE. ... ok
+test_gitops_failure_skips_validation (test_main_workflow.TestGitOpsExecutionFailure.test_gitops_failure_skips_validation) ... ok
+test_denial_blocks_gitops (test_main_workflow.TestHumanApprovalDenied.test_denial_blocks_gitops) ... ok
+test_non_yes_input_blocks_gitops (test_main_workflow.TestHumanApprovalDenied.test_non_yes_input_blocks_gitops)
+Any input other than exact 'yes' (case-insensitive) is denial. ... ok
+test_case_insensitive_yes (test_main_workflow.TestHumanApprovalGranted.test_case_insensitive_yes)
+'Yes', ' YES ', etc. are all accepted. ... ok
+test_full_success_path (test_main_workflow.TestHumanApprovalGranted.test_full_success_path) ... ok
+test_invalid_schema_fails_closed (test_main_workflow.TestInvalidOrUnsupportedProposal.test_invalid_schema_fails_closed) ... ok
+test_malformed_llm_json_fails_closed (test_main_workflow.TestInvalidOrUnsupportedProposal.test_malformed_llm_json_fails_closed) ... ok
+test_unsupported_action_fails_closed (test_main_workflow.TestInvalidOrUnsupportedProposal.test_unsupported_action_fails_closed) ... ok
+test_ollama_connection_failure (test_main_workflow.TestLLMProposalFailure.test_ollama_connection_failure) ... ok
+test_unsupported_incident_type (test_main_workflow.TestLLMProposalFailure.test_unsupported_incident_type) ... ok
+test_empty_incident_list (test_main_workflow.TestNoIncidentDetected.test_empty_incident_list) ... ok
+test_no_valid_primary_incident (test_main_workflow.TestNoIncidentDetected.test_no_valid_primary_incident) ... ok
+test_reject_blocks_execution (test_main_workflow.TestRejectDecision.test_reject_blocks_execution) ... ok
+test_deployment_failure_risk_vector (test_risk_engine.TestRiskEngine.test_deployment_failure_risk_vector) ... ok
+test_maximum_risk_vector (test_risk_engine.TestRiskEngine.test_maximum_risk_vector) ... ok
+test_minimum_risk_vector (test_risk_engine.TestRiskEngine.test_minimum_risk_vector) ... ok
+test_pod_failure_risk_vector (test_risk_engine.TestRiskEngine.test_pod_failure_risk_vector) ... ok
+test_threshold_auto_execute_boundary (test_risk_engine.TestRiskEngine.test_threshold_auto_execute_boundary) ... ok
+test_threshold_human_approval_lower_boundary (test_risk_engine.TestRiskEngine.test_threshold_human_approval_lower_boundary) ... ok
+test_threshold_human_approval_upper_boundary (test_risk_engine.TestRiskEngine.test_threshold_human_approval_upper_boundary) ... ok
+test_threshold_reject_boundary (test_risk_engine.TestRiskEngine.test_threshold_reject_boundary) ... ok
+test_unknown_incident_risk_vector (test_risk_engine.TestRiskEngine.test_unknown_incident_risk_vector) ... ok
+test_branch_mismatch_fails_validation (test_validator.TestValidator.test_branch_mismatch_fails_validation) ... ok
+test_existing_successful_gitops_validation_passes (test_validator.TestValidator.test_existing_successful_gitops_validation_passes) ... ok
+test_handles_kubeconfig_failure_gracefully (test_validator.TestValidator.test_handles_kubeconfig_failure_gracefully) ... ok
+test_handles_missing_argocd_resource_gracefully (test_validator.TestValidator.test_handles_missing_argocd_resource_gracefully) ... ok
+test_handles_missing_deployment_gracefully (test_validator.TestValidator.test_handles_missing_deployment_gracefully) ... ok
+test_incorrect_or_older_commit_revision_fails_validation (test_validator.TestValidator.test_incorrect_or_older_commit_revision_fails_validation) ... ok
+test_validation_fails_when_argocd_out_of_sync (test_validator.TestValidator.test_validation_fails_when_argocd_out_of_sync) ... ok
+test_validation_fails_when_deployment_unready (test_validator.TestValidator.test_validation_fails_when_deployment_unready) ... ok
+
+----------------------------------------------------------------------
+Ran 74 tests in 1.387s
+
+OK

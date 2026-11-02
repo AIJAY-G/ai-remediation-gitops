@@ -1,0 +1,15 @@
+================================================================================
+EVIDENCE ARTIFACT: 04_ollama_model_availability.txt
+CATEGORY: Actual live system observation
+DATE: 2026-11-02
+DESCRIPTION: Verification of local Ollama service and llama3.1:8b model availability.
+COMMAND: ollama --version; ollama list
+================================================================================
+
+ollama version is 0.40.13
+NAME           ID              SIZE      MODIFIED    
+llama3.1:8b    46e0c10c039e    4.9 GB    5 hours ago    
+
+Endpoint: http://localhost:11434/api/chat
+Status: Service active and responding to HTTP requests
+Model: llama3.1:8b (46e0c10c039e, 4.9 GB)

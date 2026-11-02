@@ -1,0 +1,24 @@
+================================================================================
+EVIDENCE ARTIFACT: 06_kubernetes_cluster_health.txt
+CATEGORY: Actual live system observation
+DATE: 2026-11-02
+DESCRIPTION: Kubernetes cluster health inspection via read-only commands.
+COMMANDS: kubectl cluster-info; kubectl get nodes -o wide; kubectl get namespaces
+================================================================================
+
+Kubernetes control plane is running at https://127.0.0.1:59217
+CoreDNS is running at https://127.0.0.1:59217/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+Node Status:
+NAME       STATUS   ROLES           AGE   VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION                             CONTAINER-RUNTIME
+minikube   Ready    control-plane   41d   v1.37.0   192.168.49.2   <none>        Debian GNU/Linux 12 (bookworm)   6.6.87.2-microsoft-standard-WSL2 (amd64)   containerd://2.3.4
+
+Cluster Namespaces:
+NAME              STATUS   AGE
+ai-remediation    Active   40d
+argocd            Active   32d
+default           Active   41d
+kube-node-lease   Active   41d
+kube-public       Active   41d
+kube-system       Active   41d
+monitoring        Active   33d

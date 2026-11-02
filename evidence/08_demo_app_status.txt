@@ -1,0 +1,26 @@
+================================================================================
+EVIDENCE ARTIFACT: 08_demo_app_status.txt
+CATEGORY: Actual live system observation
+DATE: 2026-11-02
+DESCRIPTION: Current deployment and pod status of demo-app in namespace 'ai-remediation'.
+COMMANDS: kubectl get deployment demo-app -n ai-remediation -o wide; kubectl get pods -n ai-remediation -o wide
+================================================================================
+
+Deployment Summary:
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES         SELECTOR
+demo-app   1/1     1            1           40d   nginx        nginx:latest   app=demo-app
+
+Pod Summary:
+NAME                        READY   STATUS    RESTARTS      AGE   IP           NODE       NOMINATED NODE   READINESS GATES
+demo-app-5cbccfc687-hfl7t   1/1     Running   1 (33h ago)   28d   10.244.0.9   minikube   <none>           <none>
+
+Pod Template Annotations:
+ai-remediation/restarted-at: "1791209202"
+
+Deployment Status & Conditions:
+- Replicas: 1 desired, 1 updated, 1 ready, 1 available
+- Condition 'Progressing': True (Reason: NewReplicaSetAvailable)
+- Condition 'Available': True (Reason: MinimumReplicasAvailable)
+- Image: nginx:latest
+- Container Port: 80/TCP
+- Tracking ID: ai-remediation:apps/Deployment:ai-remediation/demo-app

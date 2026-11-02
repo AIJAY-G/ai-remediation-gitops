@@ -1,0 +1,83 @@
+================================================================================
+EVIDENCE ARTIFACT: 09_risk_engine_synthetic_eval.txt
+CATEGORY: Controlled synthetic experiment
+DATE: 2026-11-02
+DESCRIPTION: Mathematical verification and threshold evaluation of the five-factor risk engine.
+FORMULA: risk = (1-c)*0.25 + u*0.20 + (1-p)*0.25 + (1-r)*0.15 + b*0.15
+THRESHOLDS:
+  - risk < 0.30  -> AUTO_EXECUTE
+  - risk < 0.60  -> HUMAN_APPROVAL
+  - risk >= 0.60 -> REJECT
+================================================================================
+
+1. Controlled Synthetic Evaluation Across Operational Regimes:
+
+Scenario 1: Low-Risk Incident (e.g. Standard Pod Failure / Restart)
+- Inputs:
+    confidence (c):         0.90
+    uncertainty (u):        0.10
+    policy_compliance (p):  1.00
+    reversibility (r):      0.90
+    blast_radius (b):       0.10
+- Calculation:
+    (1 - 0.90) * 0.25 = 0.0250
+    0.10 * 0.20       = 0.0200
+    (1 - 1.00) * 0.25 = 0.0000
+    (1 - 0.90) * 0.15 = 0.0150
+    0.10 * 0.15       = 0.0150
+    Total Risk Score  = 0.0750
+- Outcome:
+    Risk Engine Decision: AUTO_EXECUTE (score 0.075 < 0.30)
+    Operational Safeguard: Downgraded to HUMAN_APPROVAL in main.py workflow
+
+Scenario 2: Moderate-Risk Incident (e.g. Deployment Failure / Rollback)
+- Inputs:
+    confidence (c):         0.70
+    uncertainty (u):        0.40
+    policy_compliance (p):  0.80
+    reversibility (r):      0.60
+    blast_radius (b):       0.50
+- Calculation:
+    (1 - 0.70) * 0.25 = 0.0750
+    0.40 * 0.20       = 0.0800
+    (1 - 0.80) * 0.25 = 0.0500
+    (1 - 0.60) * 0.15 = 0.0600
+    0.50 * 0.15       = 0.0750
+    Total Risk Score  = 0.3400
+- Outcome:
+    Risk Engine Decision: HUMAN_APPROVAL (0.30 <= score 0.340 < 0.60)
+    Operational Safeguard: Requires explicit 'yes' input before GitOps execution
+
+Scenario 3: High-Risk Incident (e.g. Unknown / Ambiguous Cluster Anomaly)
+- Inputs:
+    confidence (c):         0.40
+    uncertainty (u):        0.80
+    policy_compliance (p):  0.40
+    reversibility (r):      0.20
+    blast_radius (b):       0.90
+- Calculation:
+    (1 - 0.40) * 0.25 = 0.1500
+    0.80 * 0.20       = 0.1600
+    (1 - 0.40) * 0.25 = 0.1500
+    (1 - 0.20) * 0.15 = 0.1200
+    0.90 * 0.15       = 0.1350
+    Total Risk Score  = 0.7150
+- Outcome:
+    Risk Engine Decision: REJECT (score 0.715 >= 0.60)
+    Operational Safeguard: Hard block. Remediation terminated immediately.
+
+--------------------------------------------------------------------------------
+2. Boundary Condition Verification:
+
+- Minimum Possible Risk Vector:
+    (c=1.0, u=0.0, p=1.0, r=1.0, b=0.0) -> Score = 0.0000 -> AUTO_EXECUTE
+- Maximum Possible Risk Vector:
+    (c=0.0, u=1.0, p=0.0, r=0.0, b=1.0) -> Score = 1.0000 -> REJECT
+- Lower Boundary (AUTO_EXECUTE upper limit):
+    Score = 0.2900 -> AUTO_EXECUTE
+- Threshold Exact Cutoff (HUMAN_APPROVAL lower limit):
+    Score = 0.3000 -> HUMAN_APPROVAL
+- Upper Boundary (HUMAN_APPROVAL upper limit):
+    Score = 0.5900 -> HUMAN_APPROVAL
+- Threshold Exact Cutoff (REJECT lower limit):
+    Score = 0.6000 -> REJECT

@@ -1,0 +1,15 @@
+================================================================================
+EVIDENCE ARTIFACT: 03_git_whitespace_check.txt
+CATEGORY: Automated mocked unit/integration test
+DATE: 2026-11-02
+DESCRIPTION: Git whitespace and formatting compliance check.
+COMMAND: git diff --check
+================================================================================
+
+Command: git diff --check
+Exit Code: 0
+Output: No whitespace or merge conflict marker errors detected.
+
+Command: git diff --check HEAD
+Exit Code: 0
+Output: No whitespace errors in HEAD commits.
