@@ -1,5 +1,6 @@
+
 from k8s_monitor import detect_incident, select_primary_incident
-from llm_proposal import generate_remediation
+from llm_proposal import generate_remediation, ProposalError
 from risk_engine import calculate_risk
 from gitops_remediation import apply_gitops_remediation
 from validator import validate_remediation
@@ -18,8 +19,11 @@ def main():
 
     print(f"Detected {len(incidents)} incident(s)")
 
-    # Select the primary incident for remediation analysis
     primary_incident = select_primary_incident(incidents)
+
+    if not primary_incident:
+        print("No valid primary incident could be selected.")
+        return
 
     print()
     print("Primary Incident")
@@ -31,20 +35,24 @@ def main():
         f"{primary_incident.get('resource_type', 'unknown')}/"
         f"{primary_incident.get('resource_name', 'unknown')}"
     )
-    evidence = primary_incident.get("evidence", {})
-    print(
-        f"Failure Reason: "
-        f"{evidence.get('failure_reason', 'N/A')}"
-    )
 
-    # 2. Generate remediation proposal
-    proposal = generate_remediation(
-        primary_incident.get("incident_type", "")
-    )
+    evidence = primary_incident.get("evidence", {})
+    print(f"Failure Reason: {evidence.get('failure_reason', 'N/A')}")
+
+    # 2. Generate LLM remediation proposal
+    try:
+        proposal = generate_remediation(
+            primary_incident.get("incident_type", "")
+        )
+    except ProposalError as exc:
+        print()
+        print(f"Remediation proposal rejected: {exc}")
+        print("No remediation will be executed.")
+        return
 
     print()
-    print("Remediation Proposal")
-    print("--------------------")
+    print("LLM Remediation Proposal")
+    print("------------------------")
     print(f"Action: {proposal['action']}")
     print(f"Description: {proposal['description']}")
 
@@ -61,42 +69,50 @@ def main():
     print("Risk Assessment")
     print("----------------")
     print(f"Risk Score: {risk:.2f}")
-    print(f"Authorization Decision: {decision}")
+    print(f"Risk Engine Decision: {decision}")
 
-    # 4. Authorization
+    # 4. Authorization safeguard
     if decision == "REJECT":
         print()
-        print("Remediation rejected.")
+        print("Remediation rejected by risk assessment.")
         return
 
-    if decision == "HUMAN_APPROVAL":
-        print()
-        approval = input(
-            "Approve remediation? (yes/no): "
-        ).strip().lower()
+    # LLM self-reported scores are not independently calibrated.
+    # Therefore, AUTO_EXECUTE is downgraded to HUMAN_APPROVAL.
+    effective_decision = "HUMAN_APPROVAL"
 
-        if approval != "yes":
-            print("Human approval denied.")
-            return
+    print()
+    print("Authorization Safeguard")
+    print("-----------------------")
+    print("LLM-generated risk scores require human verification.")
+    print(f"Effective Decision: {effective_decision}")
 
-        print("Human approval granted.")
+    approval = input(
+        "Approve this GitOps remediation? (yes/no): "
+    ).strip().lower()
+
+    if approval != "yes":
+        print("Human approval denied. No remediation executed.")
+        return
+
+    print("Human approval granted.")
 
     # 5. GitOps execution
     print()
     print("Executing authorized GitOps remediation...")
 
-    result = apply_gitops_remediation(
-        proposal["action"]
-    )
+    result = apply_gitops_remediation(proposal["action"])
 
     if not result:
-        print(f"GitOps remediation failed: {getattr(result, 'message', 'unknown error')}")
+        print(
+            "GitOps remediation failed: "
+            f"{getattr(result, 'message', 'unknown error')}"
+        )
         return
 
     # 6. Post-remediation validation
     print()
     print("Waiting for Kubernetes reconciliation...")
-
     print()
     print("Post-Remediation Validation")
     print("---------------------------")
