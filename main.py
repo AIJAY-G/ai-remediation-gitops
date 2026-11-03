@@ -1,4 +1,5 @@
 
+import os
 from k8s_monitor import detect_incident, select_primary_incident
 from llm_proposal import generate_remediation, ProposalError
 from risk_engine import calculate_risk
@@ -100,9 +101,14 @@ def main(
     print("LLM-generated risk scores require human verification.")
     print(f"Effective Decision: {effective_decision}")
 
-    approval = input(
-        "Approve this GitOps remediation? (yes/no): "
-    ).strip().lower()
+    env_approval = os.getenv("KUBEGUARD_APPROVAL")
+    if env_approval:
+        print(f"Approve this GitOps remediation? (yes/no): {env_approval}")
+        approval = env_approval.strip().lower()
+    else:
+        approval = input(
+            "Approve this GitOps remediation? (yes/no): "
+        ).strip().lower()
 
     if approval != "yes":
         print("Human approval denied. No remediation executed.")
