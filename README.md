@@ -336,7 +336,7 @@ effective_decision = "HUMAN_APPROVAL"
   - Enforces `automated: {prune: true, selfHeal: true}` to eliminate cluster drift.
   - Serves as the primary synchronization validation target in `validator.py`.
 - **Prometheus (`monitoring` namespace):**
-  - Cluster telemetry collection backend. While live incident detection in the current phase relies on direct Kubernetes API status checks, Prometheus provides the telemetry foundation for planned dynamic metric scraping (CPU, memory, request error rates).
+  - Cluster telemetry collection backend actively scraping `kube-state-metrics`, node exporter, and control-plane components. The `prometheus_client.py` module integrates directly with Prometheus to query telemetry metrics such as `kube_pod_container_status_restarts_total` and deployment replica counts, providing empirical verification without creating a hard operational failure dependency.
 - **Grafana (`monitoring` namespace):**
   - Observability visualization platform displaying container restart trends, node utilization, and synchronization events for operator situational awareness during manual authorization.
 
@@ -353,13 +353,17 @@ c:\ai-remediation-ai\
 ├── executor.py                         # DEPRECATED: Legacy direct imperative K8s executor
 ├── failure-patch.yaml                  # Fault injection patch (CrashLoopBackOff simulation)
 ├── gitops_remediation.py               # GitOps engine: manifest updating, dry-run, commit & push
-├── k8s_monitor.py                      # Incident detector: queries K8s Pods and Deployments
+├── k8s_monitor.py                      # Incident detector: queries K8s Pods, Deployments & telemetry
 ├── llm_proposal.py                     # Ollama Llama 3.1 8B integration & schema validation
 ├── llm_proposal_phase1_backup.py       # Phase 1 static mock proposal backup
 ├── main.py                             # Main orchestration workflow with authorization safeguard
+├── prometheus_client.py                # Prometheus telemetry client: safe PromQL querying & health
 ├── restore-patch.yaml                  # Fault recovery patch restoring default NGINX command
 ├── risk_engine.py                      # Five-factor risk calculation engine and CLI
 ├── validator.py                        # Closed-loop validator: polls Argo CD and Deployment health
+│
+├── docs/
+│   └── DEMO_GUIDE.md                   # Comprehensive presentation & live demo guide
 │
 ├── gitops/
 │   └── demo-app.yaml                   # GitOps desired-state manifest (Deployment + Service)
@@ -369,13 +373,15 @@ c:\ai-remediation-ai\
 │   ├── test_executor.py                # Tests for legacy direct executor (5 tests)
 │   ├── test_gitops_remediation.py      # Tests for GitOps push, branch checks, manifest update (17 tests)
 │   ├── test_incident_selection.py      # Tests for primary incident selection logic (5 tests)
-│   ├── test_llm_proposal.py            # Tests for Ollama integration & schema validator (15 tests)
+│   ├── test_k8s_monitor.py             # Tests for pod/deployment incident detection (8 tests)
+│   ├── test_llm_proposal.py            # Tests for Ollama integration & schema validator (20 tests)
 │   ├── test_main_workflow.py           # Tests for end-to-end orchestration & safeguards (15 tests)
-│   ├── test_risk_engine.py             # Tests for 5-factor formula and decision thresholds (9 tests)
+│   ├── test_prometheus_client.py       # Tests for Prometheus telemetry client (15 tests)
+│   ├── test_risk_engine.py             # Tests for 5-factor formula and decision thresholds (13 tests)
 │   └── test_validator.py               # Tests for Argo CD and Deployment post-remediation checks (8 tests)
 │
 └── evidence/
-    ├── 01_unit_and_integration_tests.txt   # Full test run log (74/74 passed)
+    ├── 01_unit_and_integration_tests.txt   # Full test run log (106/106 passed)
     ├── 02_python_compilation_check.txt     # Python bytecode compilation log (clean)
     ├── 03_git_whitespace_check.txt         # Git diff whitespace check log (clean)
     ├── 04_ollama_model_availability.txt    # Ollama version and llama3.1:8b verification log
@@ -384,6 +390,7 @@ c:\ai-remediation-ai\
     ├── 07_argocd_application_status.txt    # Argo CD application YAML and sync state log
     ├── 08_demo_app_status.txt              # demo-app Deployment & Pod status inspection log
     ├── 09_risk_engine_synthetic_eval.txt   # Multi-scenario synthetic evaluation of risk engine
+    ├── 10_prometheus_integration_status.txt# Live Prometheus query and telemetry verification
     └── RESULTS_SUMMARY.md                  # Comprehensive verification summary artifact
 ```
 

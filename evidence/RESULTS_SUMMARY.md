@@ -3,8 +3,8 @@
 **Project:** KubeGuard AI (AI-Driven Kubernetes Remediation with Risk-Adaptive GitOps Authorization)  
 **Target Review:** M.Tech Final Project Review  
 **Branch:** `phase2-ollama-integration`  
-**Date of Evidence Collection:** 2026-11-02  
-**Evaluation Target:** Stabilization, Risk Engine, Ollama Integration, and Orchestration Workflow  
+**Date of Evidence Collection:** 2026-11-03\
+**Evaluation Target:** Stabilization, Risk Engine, Ollama Integration, Prometheus Telemetry, and Orchestration Workflow\
 
 ---
 
@@ -13,10 +13,11 @@
 This document consolidates verifiable evidence collected from the KubeGuard AI project repository. All artifacts, test executions, and live system observations have been collected in compliance with safety constraints: **no destructive cluster operations, no unprompted GitOps manifest mutations, and no bypass of human authorization safeguards**.
 
 Across all verification dimensions, the implementation demonstrates:
-- **100% test pass rate** across 74 unit and workflow integration tests.
-- **Zero compilation errors** and zero Git whitespace anomalies.
-- **Local LLM operational readiness** with Ollama running `llama3.1:8b`.
-- **Live cluster and GitOps health**, verifying Minikube, Argo CD (`Synced`/`Healthy`), and `demo-app`.
+- **100% test pass rate** across 106 automated unit, client, and workflow integration tests (expanded from 74 baseline tests).
+- **Zero compilation errors** (`python -m compileall -q .`) and zero Git whitespace anomalies (`git diff --check`).
+- **Prometheus telemetry client operational readiness**, verified with live queries against Minikube `monitoring` stack (`kube-state-metrics`).
+- **Local LLM operational readiness** with Ollama running `llama3.1:8b` generating schema-compliant remediation proposals.
+- **Live cluster and GitOps health**, verifying Minikube (v1.37.0), Argo CD (`Synced`/`Healthy`), and `demo-app`.
 - **Mathematical determinism and policy enforcement** of the five-factor risk engine and mandatory human approval safeguard.
 
 ---
@@ -25,7 +26,7 @@ Across all verification dimensions, the implementation demonstrates:
 
 | Artifact Filename | Evidence Category | Description | Verification Status |
 |---|---|---|---|
-| [`01_unit_and_integration_tests.txt`](01_unit_and_integration_tests.txt) | Automated mocked unit/integration test | 74 automated tests covering modules & end-to-end orchestration in `main.py` | **74/74 Passed** |
+| [`01_unit_and_integration_tests.txt`](01_unit_and_integration_tests.txt) | Automated mocked unit/integration test | 106 automated tests covering modules & end-to-end orchestration in `main.py` | **106/106 Passed** |
 | [`02_python_compilation_check.txt`](02_python_compilation_check.txt) | Automated mocked unit/integration test | Bytecode compilation across all Python files (`python -m compileall -q .`) | **Exit Code 0** |
 | [`03_git_whitespace_check.txt`](03_git_whitespace_check.txt) | Automated mocked unit/integration test | Git line-ending and whitespace consistency check (`git diff --check`) | **Clean** |
 | [`04_ollama_model_availability.txt`](04_ollama_model_availability.txt) | Actual live system observation | Local Ollama CLI & model verification (`llama3.1:8b`, 4.9 GB) | **Active & Available** |
@@ -34,12 +35,29 @@ Across all verification dimensions, the implementation demonstrates:
 | [`07_argocd_application_status.txt`](07_argocd_application_status.txt) | Actual live system observation | Argo CD application `ai-remediation` sync status and target revision | **Synced & Healthy** |
 | [`08_demo_app_status.txt`](08_demo_app_status.txt) | Actual live system observation | Read-only inspection of `demo-app` Deployment and Pod in `ai-remediation` | **1/1 Ready & Running** |
 | [`09_risk_engine_synthetic_eval.txt`](09_risk_engine_synthetic_eval.txt) | Controlled synthetic experiment | Multi-scenario threshold evaluation across `AUTO_EXECUTE`, `HUMAN_APPROVAL`, `REJECT` | **100% Boundary Compliant** |
+| [`10_prometheus_integration_status.txt`](10_prometheus_integration_status.txt) | Actual live system observation | Live Prometheus metrics query verification (`kube_pod_container_status_restarts_total`) | **Active & Verified** |
 
 ---
 
 ## 3. What Was Tested and Verified
 
-1. **Orchestration Workflow (`main.py`):**
+1. **Prometheus Telemetry Integration (`prometheus_client.py`):**
+   - Verified connection to live Prometheus endpoint and health check.
+   - Verified live PromQL execution:
+     `kube_pod_container_status_restarts_total{namespace="ai-remediation",container="nginx"}`
+     accurately reflecting the 2 restarts on `pod/demo-app-5cbccfc687-hfl7t`.
+   - Verified non-blocking fallback behavior: connection errors and missing metrics return `None` without failing core Kubernetes API monitoring.
+   - Tested across 15 unit tests covering vector parsing, HTTP error codes, connection errors, and query timeouts.
+
+2. **Kubernetes Incident Detection (`k8s_monitor.py`):**
+   - Verified detection of container waiting states: `CrashLoopBackOff`, `ImagePullBackOff`, `ErrImagePull`, and `CreateContainerConfigError`.
+   - Verified detection of container terminated failure states: `OOMKilled`, `Error`, and non-zero exit codes.
+   - Verified detection of excessive container restarts (>2 unready, or >=5 total).
+   - Verified detection of Deployment replica availability deficits (`available_replicas < desired_replicas`).
+   - Verified error handling for missing Kubernetes configuration and API exceptions.
+   - Tested across 8 dedicated unit tests in `test_k8s_monitor.py`.
+
+3. **Orchestration Workflow (`main.py`):**
    - Verified that when no incident is detected, the workflow terminates safely without invoking the LLM or GitOps.
    - Verified that if the LLM proposal fails or raises a `ProposalError`, the workflow aborts with zero execution.
    - Verified that high-risk proposals (`REJECT` decision) are strictly blocked without requesting approval.
@@ -49,31 +67,34 @@ Across all verification dimensions, the implementation demonstrates:
    - Verified that GitOps push failures immediately prevent post-remediation validation from claiming success.
    - Verified that invalid actions or schema violations fail closed.
 
-2. **Ollama Integration & Proposal Validation (`llm_proposal.py`):**
+4. **Ollama Integration & Proposal Validation (`llm_proposal.py`):**
    - Verified strict JSON schema validation requiring exact fields: `incident`, `action`, `description`, `confidence`, `uncertainty`, `policy_compliance`, `reversibility`, `blast_radius`.
-   - Verified allowlist enforcement: only `restart_pod` is allowed as an action; dangerous actions (e.g. namespace deletion, unauthorized commands) are rejected before execution.
-   - Verified rejection of out-of-bounds, negative, boolean, or NaN numerical risk fields.
-   - Verified handling of Ollama connection failures and malformed JSON payloads.
+   - Verified allowlist enforcement: only `restart_pod` is allowed as an action; dangerous actions are rejected before execution.
+   - Verified rejection of out-of-bounds, negative, boolean, string, infinite, or NaN numerical risk fields.
+   - Verified handling of Ollama connection failures, timeouts, and malformed JSON payloads.
+   - Tested across 20 unit tests in `test_llm_proposal.py`.
 
-3. **GitOps Remediation & Push Verification (`gitops_remediation.py`):**
+5. **GitOps Remediation & Push Verification (`gitops_remediation.py`):**
    - Verified branch protection preventing execution on `main` or detached HEADs.
    - Verified refusal to execute when unrelated staged changes exist.
    - Verified generation of collision-free restart annotations combining ISO UTC timestamps and UUIDs.
    - Verified strict push verification using explicit refspec `+refs/heads/<branch>:refs/remotes/origin/<branch>` and ancestry verification (`merge-base --is-ancestor`).
    - Verified fail-closed behavior when remote fetches fail or remote branches do not exist.
 
-4. **Argo CD & Post-Remediation Validation (`validator.py`):**
+6. **Argo CD & Post-Remediation Validation (`validator.py`):**
    - Verified strict matching between Argo CD `targetRevision` and the expected GitOps development branch.
    - Verified exact 40-character commit SHA matching against Argo CD synchronized revision.
    - Verified that OutOfSync status or unready Pod replicas result in validation failure.
 
-5. **Risk Engine Formula & Thresholds (`risk_engine.py`):**
+7. **Risk Engine Formula & Thresholds (`risk_engine.py`):**
    - Verified the five-factor risk formula:
      $$\text{Risk} = (1 - c) \times 0.25 + u \times 0.20 + (1 - p) \times 0.25 + (1 - r) \times 0.15 + b \times 0.15$$
    - Verified threshold boundaries:
      - $\text{Risk} < 0.30 \implies \text{AUTO\_EXECUTE}$
      - $0.30 \le \text{Risk} < 0.60 \implies \text{HUMAN\_APPROVAL}$
      - $\text{Risk} \ge 0.60 \implies \text{REJECT}$
+   - Verified type enforcement rejecting boolean, string, infinite, and NaN inputs.
+   - Tested across 13 unit tests in `test_risk_engine.py`.
 
 ---
 
@@ -82,7 +103,6 @@ Across all verification dimensions, the implementation demonstrates:
 1. **Destructive Live Fault Injection:** No live pods were forcibly killed or CrashLooped during this evidence capture session, ensuring cluster stability and zero disruption to the active Minikube environment.
 2. **Live Git Push to Production Branches:** In accordance with project instructions, no live commits were pushed to `implementation-baseline` or `main`.
 3. **Automated Live GitOps Mutation:** Live manifest updates and remote repository pushes were verified under controlled mock suites rather than by writing synthetic changes to the live demo app.
-4. **Prometheus Metrics Scraper:** Live Prometheus metric gathering is scheduled for subsequent phases.
 
 ---
 
@@ -90,7 +110,7 @@ Across all verification dimensions, the implementation demonstrates:
 
 1. **Subjective Self-Assessment:** Large language models self-report numerical estimates for confidence and uncertainty. These scores are subjective heuristics generated by token probability rather than formally calibrated statistical distributions.
 2. **Potential for Miscalibration:** An LLM may produce high confidence ($c=0.90$) and low blast radius ($b=0.10$) even in edge cases where underlying root causes are ambiguous or multifaceted.
-3. **Lack of Dynamic Telemetry Awareness:** Unless detailed real-time metrics (e.g., node resource saturation, network traffic spikes, dependent database latencies) are dynamically injected into the context window, the model cannot account for runtime cluster stress.
+3. **Dynamic Telemetry Independence:** The LLM proposal provides heuristic estimates; Prometheus integration acts as an objective validator to cross-examine runtime realities.
 4. **Prompt Brittleness:** Slight prompt phrasing adjustments can shift estimated values by several decimal places, potentially crossing decision boundaries if relied upon without guardrails.
 
 ---
@@ -101,11 +121,3 @@ To counter the inherent limitations of generative AI in mission-critical infrast
 - **Automatic Downgrade of `AUTO_EXECUTE`:** In `main.py`, any proposal classified by the risk engine as `AUTO_EXECUTE` ($\text{Risk} < 0.30$) is programmatically downgraded to `HUMAN_APPROVAL`.
 - **Operator Accountability:** A human engineer must always review the proposed incident context, action description, and estimated risk score before any manifest mutation or Git commit occurs.
 - **Fail-Closed Default:** If the operator does not explicitly enter `yes`, the entire remediation cycle is terminated with zero modifications to desired or live state.
-
----
-
-## 7. Why No Live Remediation Was Triggered During Evidence Collection
-
-1. **Review Safety Guidelines:** The objective of Phase 4 is read-only inspection and objective evidence gathering. Triggering live remediations during review preparation creates unnecessary cluster drift.
-2. **Clean Baseline Preservation:** The current Argo CD application is cleanly synchronized with revision `da11d3574e10b549661defa5bb85dfee8d200072` on branch `implementation-baseline`. Executing a mock restart would introduce unneeded commits into the GitOps repository.
-3. **Exhaustive Automated Verification:** The 74 automated unit and integration tests thoroughly validate the exact execution path—from manifest generation and dry-run validation to commit creation, remote push ancestry checks, and Argo CD sync polling—without modifying live production resources.

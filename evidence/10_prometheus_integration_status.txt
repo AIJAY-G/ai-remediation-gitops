@@ -1,0 +1,90 @@
+================================================================================
+EVIDENCE ARTIFACT: 10_prometheus_integration_status.txt
+CATEGORY: Actual live system observation
+DATE: 2026-11-03
+DESCRIPTION: Prometheus pod, service, metrics scrape targets, and live PromQL query verification.
+================================================================================
+
+1. MONITORING NAMESPACE RESOURCES:
+---------------------------------
+Pod: pod/prometheus-monitoring-kube-prometheus-prometheus-0 (2/2 Running)
+Pod: pod/monitoring-kube-state-metrics-78fd56fc4b-zb4p8 (1/1 Running)
+Pod: pod/monitoring-grafana-6fc84d54d-dh6w6 (3/3 Running)
+Pod: pod/monitoring-prometheus-node-exporter-vzm9b (1/1 Running)
+Service: service/monitoring-kube-prometheus-prometheus (ClusterIP 10.102.31.80:9090)
+Service: service/monitoring-grafana (ClusterIP 10.110.232.52:80)
+Service: service/monitoring-kube-state-metrics (ClusterIP 10.110.176.53:8080)
+
+2. PROMETHEUS SCRAPE TARGET VERIFICATION:
+------------------------------------------
+Active ServiceMonitors:
+- monitoring/monitoring-kube-state-metrics
+- monitoring/monitoring-kube-prometheus-prometheus
+- monitoring/monitoring-kubelet
+- monitoring/monitoring-grafana
+- monitoring/monitoring-prometheus-node-exporter
+
+3. VERIFIED LIVE PROMETHEUS METRIC QUERIES:
+-------------------------------------------
+Query 1:
+PromQL: kube_pod_container_status_restarts_total{namespace="ai-remediation",container="nginx"}
+HTTP Status: 200 OK
+Response:
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {
+          "__name__": "kube_pod_container_status_restarts_total",
+          "container": "nginx",
+          "endpoint": "http",
+          "instance": "10.244.0.5:8080",
+          "job": "kube-state-metrics",
+          "namespace": "ai-remediation",
+          "pod": "demo-app-5cbccfc687-hfl7t",
+          "service": "monitoring-kube-state-metrics"
+        },
+        "value": [
+          1793698208.118,
+          "2"
+        ]
+      }
+    ]
+  }
+}
+Observation: Genuinely exposed and actively scraped by kube-state-metrics. Value matches the 2 restarts recorded on pod demo-app-5cbccfc687-hfl7t.
+
+Query 2:
+PromQL: kube_deployment_status_replicas_available{namespace="ai-remediation",deployment="demo-app"}
+HTTP Status: 200 OK
+Observed Value: 1 (Available replicas)
+
+Query 3:
+PromQL: kube_deployment_spec_replicas{namespace="ai-remediation",deployment="demo-app"}
+HTTP Status: 200 OK
+Observed Value: 1 (Desired replicas)
+
+Query 4:
+PromQL: kube_pod_container_status_waiting_reason{namespace="ai-remediation"}
+HTTP Status: 200 OK
+Observed Result: [] (Empty, confirming no pods are in CrashLoopBackOff or ImagePullBackOff)
+
+4. GRAFANA STATUS:
+------------------
+Endpoint: http://10.110.232.52:80/api/health
+HTTP Status: 200 OK
+Payload:
+{
+  "database": "ok",
+  "version": "13.2.3",
+  "commit": "90ffed056f0884267356c12a0eeb72a022af53f1"
+}
+
+5. CLIENT INTEGRATION STATUS:
+-----------------------------
+Module: prometheus_client.py
+Tests: tests/test_prometheus_client.py (15 automated unit tests, 100% passing)
+Architecture: Dual-transport support (direct HTTP via PROMETHEUS_URL or Kubernetes API service proxy).
+Fallback: Non-blocking; if Prometheus is unreachable, returns None and does not fail incident detection.

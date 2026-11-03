@@ -1,4 +1,4 @@
-
+import math
 import unittest
 from risk_engine import calculate_risk
 
@@ -52,6 +52,26 @@ class TestRiskEngine(unittest.TestCase):
         risk, decision = calculate_risk(0.40, 0.80, 0.40, 0.20, 0.90)
         self.assertAlmostEqual(risk, 0.715, places=4)
         self.assertEqual(decision, "REJECT")
+
+    def test_boolean_input_rejected_with_type_error(self):
+        with self.assertRaises(TypeError):
+            calculate_risk(True, 0.10, 1.00, 0.90, 0.10)
+        with self.assertRaises(TypeError):
+            calculate_risk(0.90, False, 1.00, 0.90, 0.10)
+
+    def test_string_input_rejected_with_type_error(self):
+        with self.assertRaises(TypeError):
+            calculate_risk("0.90", 0.10, 1.00, 0.90, 0.10)
+
+    def test_nan_input_rejected_with_value_error(self):
+        with self.assertRaises(ValueError):
+            calculate_risk(float("nan"), 0.10, 1.00, 0.90, 0.10)
+
+    def test_infinite_input_rejected_with_value_error(self):
+        with self.assertRaises(ValueError):
+            calculate_risk(float("inf"), 0.10, 1.00, 0.90, 0.10)
+        with self.assertRaises(ValueError):
+            calculate_risk(0.90, float("-inf"), 1.00, 0.90, 0.10)
 
 
 if __name__ == "__main__":

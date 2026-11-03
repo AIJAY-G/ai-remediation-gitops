@@ -1,4 +1,3 @@
-
 import io
 import json
 import unittest
@@ -97,12 +96,34 @@ class TestProposalValidation(unittest.TestCase):
         with self.assertRaises(ProposalError):
             _validate_proposal(proposal, "pod_failure")
 
+    def test_infinite_score_is_rejected(self):
+        proposal = valid_proposal()
+        proposal["confidence"] = float("inf")
+
+        with self.assertRaises(ProposalError):
+            _validate_proposal(proposal, "pod_failure")
+
+        proposal["confidence"] = float("-inf")
+        with self.assertRaises(ProposalError):
+            _validate_proposal(proposal, "pod_failure")
+
+    def test_string_score_is_rejected(self):
+        proposal = valid_proposal()
+        proposal["confidence"] = "0.85"
+
+        with self.assertRaises(ProposalError):
+            _validate_proposal(proposal, "pod_failure")
+
     def test_empty_description_is_rejected(self):
         proposal = valid_proposal()
         proposal["description"] = "   "
 
         with self.assertRaises(ProposalError):
             _validate_proposal(proposal, "pod_failure")
+
+    def test_non_dict_proposal_is_rejected(self):
+        with self.assertRaises(ProposalError):
+            _validate_proposal(["not", "a", "dict"], "pod_failure")
 
 
 class TestOllamaIntegration(unittest.TestCase):
@@ -141,11 +162,24 @@ class TestOllamaIntegration(unittest.TestCase):
 
             mock_urlopen.assert_not_called()
 
+    def test_invalid_incident_type_argument(self):
+        with self.assertRaises(ProposalError):
+            generate_remediation(12345)
+        with self.assertRaises(ProposalError):
+            generate_remediation("   ")
+
     @patch("llm_proposal.urllib.request.urlopen")
     def test_ollama_connection_error(self, mock_urlopen):
         from urllib.error import URLError
 
         mock_urlopen.side_effect = URLError("Connection refused")
+
+        with self.assertRaises(ProposalError):
+            generate_remediation("pod_failure")
+
+    @patch("llm_proposal.urllib.request.urlopen")
+    def test_ollama_timeout_error(self, mock_urlopen):
+        mock_urlopen.side_effect = TimeoutError("Ollama response timed out")
 
         with self.assertRaises(ProposalError):
             generate_remediation("pod_failure")
