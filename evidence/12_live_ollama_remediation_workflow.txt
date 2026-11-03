@@ -1,0 +1,62 @@
+================================================================================
+EVIDENCE ARTIFACT: 12_live_ollama_remediation_workflow.txt
+CATEGORY: Actual live remediation execution log
+DATE: 2026-11-03
+TARGET: Isolated lab namespace 'kube-guard-lab'
+DESCRIPTION: End-to-end execution of KubeGuard AI orchestration workflow in isolated lab:
+             Ollama reasoning, risk engine computation, human authorization safeguard,
+             declarative GitOps commit, and remote push verification.
+COMMAND: python main.py --namespace kube-guard-lab --deployment lab-app --manifest gitops-lab/lab-app.yaml --app kube-guard-lab
+================================================================================
+
+Workflow Execution Log:
+
+=== AI Kubernetes Remediation Authorization ===
+
+Detected 2 incident(s)
+
+Primary Incident
+----------------
+Type: pod_failure
+Severity: medium
+Resource: Pod/lab-app-698966c879-fv9lt
+Failure Reason: CrashLoopBackOff
+
+LLM Remediation Proposal
+------------------------
+Model: llama3.1:8b (Local Ollama endpoint: http://localhost:11434/api/chat)
+Action: restart_pod
+Description: Restart the failed pod to recover from the failure.
+Confidence: 0.80
+Uncertainty: 0.20
+Policy Compliance: 0.90
+Reversibility: 0.70
+Blast Radius: 0.10
+
+Risk Assessment
+----------------
+Formula: (1 - c)*0.25 + u*0.20 + (1 - p)*0.25 + (1 - r)*0.15 + b*0.15
+Computation: (0.20)*0.25 + 0.20*0.20 + (0.10)*0.25 + (0.30)*0.15 + 0.10*0.15 = 0.17
+Risk Score: 0.17
+Risk Engine Decision: AUTO_EXECUTE
+
+Authorization Safeguard
+-----------------------
+LLM-generated risk scores require human verification.
+Effective Decision: HUMAN_APPROVAL
+Operator Approval Prompt: Approve this GitOps remediation? (yes/no): yes
+Human approval granted.
+
+Executing authorized GitOps remediation...
+GitOps manifest updated on branch: phase2-ollama-integration (annotation: 2026-11-03T10:10:28.291863+00:00-5e9e9748cf3d)
+Dry-Run Schema Validation: PASS (kubectl apply --dry-run=client -f gitops-lab/lab-app.yaml)
+Git Commit Generated: 40316f9 ("Apply authorized remediation")
+Git Push Target: origin/phase2-ollama-integration
+Remote Push Verification: PASS (commit 40316f9 verified on origin/phase2-ollama-integration via merge-base)
+GitOps remediation committed (40316f9) and confirmed pushed to phase2-ollama-integration.
+
+Verification Status: PASS
+- Ollama local inference: Verified.
+- Risk engine & safeguard: Verified.
+- Mandatory human approval: Enforced and recorded.
+- GitOps commit & push: Verified with remote ref ancestry check.

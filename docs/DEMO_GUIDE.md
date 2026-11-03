@@ -80,24 +80,23 @@ kubectl get namespaces
 NAME             STATUS   ROLES           AGE   VERSION
 minikube         Ready    control-plane   34d   v1.37.0
 ```
-Namespaces must include: `ai-remediation`, `argocd`, `monitoring`.
+Namespaces must include: `ai-remediation`, `argocd`, `monitoring`, and `kube-guard-lab`.
 
 ### Step 2.3: Verify Argo CD & Workload Health
 
 ```powershell
-# Check Argo CD Application
-kubectl get application ai-remediation -n argocd
+# Check Argo CD Applications
+kubectl get applications -n argocd
 
-# Check demo workload
+# Check demo workloads
 kubectl get deployment,pods -n ai-remediation -l app=demo-app
+kubectl get deployment,pods -n kube-guard-lab -l app=lab-app
 ```
 **Expected Output:**
 ```text
 NAME             SYNC STATUS   HEALTH STATUS
 ai-remediation   Synced        Healthy
-
-NAME                       READY   STATUS    RESTARTS   AGE
-pod/demo-app-5cbccfc687-... 1/1     Running   2          ...
+kube-guard-lab   Synced        Healthy
 ```
 
 ### Step 2.4: Verify Prometheus & Monitoring Stack
@@ -107,6 +106,11 @@ kubectl get pods -n monitoring -l app.kubernetes.io/name=prometheus
 kubectl get svc -n monitoring monitoring-kube-prometheus-prometheus
 ```
 **Expected Output:** Prometheus pod is in `Running` state (2/2 Ready).
+
+If port-forwarding is needed for local metrics access:
+```powershell
+kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-prometheus 9090:9090
+```
 
 ---
 
@@ -194,7 +198,7 @@ python prometheus_client.py
 **Expected Output:**
 ```text
 Checking Prometheus at http://localhost:9090...
-Prometheus healthy: ...
+Prometheus healthy: True
 Observed restarts for nginx in ai-remediation: 2
 Observed deployment metrics for demo-app: {'available_replicas': 1, 'desired_replicas': 1}
 ```
@@ -268,6 +272,64 @@ Approve this GitOps remediation? (yes/no):
 
 ---
 
+### Demo 6: Real Isolated Live End-to-End Remediation (`kube-guard-lab`)
+
+Demonstrates complete, safe, un-mocked live self-healing in an isolated sandbox namespace without touching production workloads (`ai-remediation/demo-app`).
+
+#### Step 6.1: Verify Isolated Workload & Argo CD Application Health
+```powershell
+kubectl get application kube-guard-lab -n argocd
+kubectl get pods,deployment,svc -n kube-guard-lab
+```
+*Expected Output:* `kube-guard-lab` is `Synced` and `Healthy`, `pod/lab-app-...` is `1/1 Running`.
+
+#### Step 6.2: Introduce Controlled Failure in Lab Workload Only
+```powershell
+# Apply failure patch to lab deployment:
+kubectl patch deployment lab-app -n kube-guard-lab --patch-file failure-patch-lab.yaml
+```
+Verify the crash:
+```powershell
+kubectl get pods -n kube-guard-lab
+```
+*Expected Output:* `lab-app-...` enters `CrashLoopBackOff` (`0/1 Ready`).
+
+#### Step 6.3: Run Live Remediation Workflow
+```powershell
+python main.py --namespace kube-guard-lab --deployment lab-app --manifest gitops-lab/lab-app.yaml --app kube-guard-lab
+```
+- Incident Detection identifies `pod_failure` on `Pod/lab-app-...` (`CrashLoopBackOff`) with live Prometheus telemetry correlation.
+- Local Ollama `llama3.1:8b` generates structured proposal `restart_pod`.
+- Risk engine calculates risk score (e.g., $0.17$).
+- Authorization safeguard requires human approval:
+  ```text
+  Approve this GitOps remediation? (yes/no): yes
+  ```
+- Upon typing `yes`:
+  - `gitops-lab/lab-app.yaml` is updated with a unique restart annotation and restored container command.
+  - Manifest is dry-run validated with `kubectl apply --dry-run=client`.
+  - Changes are committed and pushed to `phase2-ollama-integration`.
+  - Remote push ancestry is confirmed on `origin/phase2-ollama-integration`.
+  - Argo CD synchronizes the exact commit revision.
+  - Validator confirms:
+    ```text
+    Validation: SUCCESS
+    GitOps and Kubernetes remediation completed successfully.
+    Verified synchronized commit: <commit-sha>
+    ```
+
+#### Step 6.4: Optional Teardown & Cleanup of Lab Resources
+When the demonstration is complete:
+```powershell
+# Remove the isolated Argo CD application:
+kubectl delete application kube-guard-lab -n argocd
+
+# Delete the isolated namespace (does NOT affect ai-remediation, argocd, or monitoring):
+kubectl delete namespace kube-guard-lab
+```
+
+---
+
 ## 4. Automated Test Suite Verification
 
 Demonstrates the QA and code reliability of the prototype.
@@ -278,7 +340,7 @@ python -m unittest discover -s tests -v
 ```
 **Expected Result:**
 ```text
-Ran 106 tests in 1.4s
+Ran 110 tests in 1.4s
 
 OK
 ```
@@ -288,9 +350,9 @@ OK
 - `test_llm_proposal.py`: Schema validation, score validation (NaN, inf, bool, strings), allowlist, Ollama API mocks.
 - `test_risk_engine.py`: Formula calculation, threshold boundary conditions, type checks.
 - `test_incident_selection.py`: Primary incident prioritization heuristics.
-- `test_gitops_remediation.py`: Branch safety, staged diff validation, explicit refspec push verification, ancestry checks.
+- `test_gitops_remediation.py`: Multi-workload support, custom manifests, branch safety, staged diff validation, explicit refspec push verification, ancestry checks.
 - `test_validator.py`: Argo CD sync/health checks, commit SHA matching, targetRevision alignment, replica readiness.
-- `test_main_workflow.py`: End-to-end orchestration, auto-execute downgrade, human approval, fail-closed handling.
+- `test_main_workflow.py`: End-to-end orchestration, multi-namespace parameters, auto-execute downgrade, human approval, fail-closed handling.
 - `test_executor.py`: Legacy direct executor safeguards.
 
 ---

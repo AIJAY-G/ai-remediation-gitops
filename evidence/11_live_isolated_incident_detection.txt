@@ -1,0 +1,67 @@
+================================================================================
+EVIDENCE ARTIFACT: 11_live_isolated_incident_detection.txt
+CATEGORY: Actual live Kubernetes incident observation
+DATE: 2026-11-03
+TARGET: Isolated lab namespace 'kube-guard-lab'
+DESCRIPTION: Live incident detection of controlled container failure (CrashLoopBackOff)
+             with real-time Prometheus telemetry enrichment.
+COMMAND: python -c "from k8s_monitor import detect_incident, select_primary_incident; incidents = detect_incident('kube-guard-lab'); print(incidents); print('Primary:', select_primary_incident(incidents))"
+================================================================================
+
+Target Environment:
+- Cluster: Minikube v1.37.0 on WSL2
+- Namespace: kube-guard-lab (strictly isolated from ai-remediation)
+- Deployment: lab-app
+- Workload Pod: lab-app-698966c879-fv9lt
+- Controlled Failure: container command override ('/bin/sh -c "echo intentional failure in lab-app; exit 1"')
+- Telemetry Source: Prometheus in monitoring namespace (http://localhost:9090)
+
+Live Detected Incidents:
+[
+  {
+    "incident_id": "INC-lab-app-698966c879-fv9lt",
+    "incident_type": "pod_failure",
+    "severity": "medium",
+    "namespace": "kube-guard-lab",
+    "resource_type": "Pod",
+    "resource_name": "lab-app-698966c879-fv9lt",
+    "status": "detected",
+    "detected_at": "2026-11-03T10:09:50.624328+00:00",
+    "evidence": {
+      "pod_phase": "Running",
+      "container_ready": false,
+      "restart_count": 1,
+      "failure_reason": "CrashLoopBackOff",
+      "container_name": "nginx",
+      "prometheus_restarts": 1
+    }
+  },
+  {
+    "incident_id": "INC-lab-app-deployment",
+    "incident_type": "deployment_failure",
+    "severity": "high",
+    "namespace": "kube-guard-lab",
+    "resource_type": "Deployment",
+    "resource_name": "lab-app",
+    "status": "detected",
+    "detected_at": "2026-11-03T10:09:50.637186+00:00",
+    "evidence": {
+      "desired_replicas": 1,
+      "available_replicas": 0,
+      "ready_replicas": 0
+    }
+  }
+]
+
+Primary Incident Selection Result:
+- Priority Algorithm: Prioritizes 'pod_failure' over deployment deficits.
+- Selected Primary Incident:
+  * Type: pod_failure
+  * Severity: medium
+  * Resource: Pod/lab-app-698966c879-fv9lt
+  * Failure Reason: CrashLoopBackOff
+  * Prometheus Telemetry Observed: prometheus_restarts = 1
+
+Verification Status: PASS
+- Live container crash confirmed via Kubernetes CoreV1Api.
+- Live telemetry correlation confirmed via PrometheusClient instant query API.
