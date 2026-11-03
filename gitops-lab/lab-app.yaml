@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-app
+  namespace: kube-guard-lab
+  labels:
+    app: lab-app
+    environment: isolation-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lab-app
+  template:
+    metadata:
+      labels:
+        app: lab-app
+        environment: isolation-lab
+      annotations:
+        ai-remediation/restarted-at: 'initial-baseline'
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        command:
+        - nginx
+        - -g
+        - daemon off;
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-app
+  namespace: kube-guard-lab
+  labels:
+    app: lab-app
+spec:
+  selector:
+    app: lab-app
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

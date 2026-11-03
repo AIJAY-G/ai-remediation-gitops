@@ -210,11 +210,19 @@ def generate_restart_annotation():
     return f"{now_utc}-{unique_suffix}"
 
 
-def update_manifest_for_restart(manifest_path=MANIFEST, restart_id=None):
+def update_manifest_for_restart(
+    manifest_path=MANIFEST,
+    restart_id=None,
+    deployment_name=None,
+    container_name=None
+):
     """
     Updates the Deployment in the manifest with a unique restart annotation and restores NGINX command.
     Returns (documents, old_annotation, new_annotation).
     """
+    target_deployment = deployment_name or EXPECTED_DEPLOYMENT
+    target_container = container_name or EXPECTED_CONTAINER
+
     if restart_id is None:
         restart_id = generate_restart_annotation()
 
@@ -232,7 +240,7 @@ def update_manifest_for_restart(manifest_path=MANIFEST, restart_id=None):
 
         if (
             doc.get("kind") == "Deployment"
-            and doc.get("metadata", {}).get("name") == EXPECTED_DEPLOYMENT
+            and doc.get("metadata", {}).get("name") == target_deployment
         ):
             deployment_found = True
 
@@ -248,7 +256,7 @@ def update_manifest_for_restart(manifest_path=MANIFEST, restart_id=None):
             )
 
             for container in containers:
-                if container.get("name") == EXPECTED_CONTAINER:
+                if container.get("name") == target_container:
                     container_found = True
 
                     # Restore the expected NGINX startup command.
@@ -259,7 +267,9 @@ def update_manifest_for_restart(manifest_path=MANIFEST, restart_id=None):
                     ]
 
     if not deployment_found or not container_found:
-        raise ValueError("Expected Deployment or NGINX container not found in manifest.")
+        raise ValueError(
+            f"Expected Deployment '{target_deployment}' or container '{target_container}' not found in manifest."
+        )
 
     return documents, old_annotation, str(restart_id)
 
@@ -274,14 +284,23 @@ def write_manifest_documents(documents, manifest_path=MANIFEST):
         )
 
 
-def apply_gitops_remediation(action):
+def apply_gitops_remediation(
+    action,
+    manifest_path=None,
+    deployment_name=None,
+    container_name=None
+):
     if action != "restart_pod":
         print(f"Unsupported remediation: {action}")
         return RemediationResult(success=False, message=f"Unsupported action: {action}")
 
-    if not MANIFEST.exists():
-        print(f"GitOps manifest not found: {MANIFEST}")
-        return RemediationResult(success=False, message=f"Manifest not found: {MANIFEST}")
+    target_manifest = Path(manifest_path) if manifest_path else MANIFEST
+    target_deployment = deployment_name or EXPECTED_DEPLOYMENT
+    target_container = container_name or EXPECTED_CONTAINER
+
+    if not target_manifest.exists():
+        print(f"GitOps manifest not found: {target_manifest}")
+        return RemediationResult(success=False, message=f"Manifest not found: {target_manifest}")
 
     branch = get_current_branch()
 
@@ -304,14 +323,18 @@ def apply_gitops_remediation(action):
 
     # Update the manifest with a unique restart annotation
     try:
-        documents, old_annotation, new_annotation = update_manifest_for_restart(MANIFEST)
+        documents, old_annotation, new_annotation = update_manifest_for_restart(
+            target_manifest,
+            deployment_name=target_deployment,
+            container_name=target_container
+        )
     except Exception as err:
         print(f"Failed to update manifest documents: {err}")
         return RemediationResult(success=False, branch=branch, message=str(err))
 
     # Write the updated desired state to file.
     try:
-        write_manifest_documents(documents, MANIFEST)
+        write_manifest_documents(documents, target_manifest)
     except Exception as err:
         print(f"Failed to write updated manifest: {err}")
         return RemediationResult(success=False, branch=branch, message=str(err))
@@ -325,7 +348,7 @@ def apply_gitops_remediation(action):
             "apply",
             "--dry-run=client",
             "-f",
-            str(MANIFEST)
+            str(target_manifest)
         ])
     except subprocess.CalledProcessError as err:
         print(f"Manifest schema validation failed: {err.stderr or err}")
@@ -339,7 +362,7 @@ def apply_gitops_remediation(action):
             "git",
             "add",
             "--",
-            str(MANIFEST)
+            str(target_manifest)
         ])
 
         # Confirm that only the intended file is staged.
@@ -352,7 +375,7 @@ def apply_gitops_remediation(action):
 
         staged_files = result.stdout.splitlines()
 
-        if staged_files != [MANIFEST.as_posix()]:
+        if staged_files != [target_manifest.as_posix()]:
             print(f"Unexpected staged files detected ({staged_files}). Aborting commit.")
             return RemediationResult(success=False, branch=branch, message="Unexpected staged files")
 

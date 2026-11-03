@@ -371,5 +371,67 @@ class TestGitOpsRemediation(unittest.TestCase):
         self.assertFalse(is_commit_pushed("abc", 12345))
 
 
+    def test_update_manifest_custom_workload_and_container(self):
+        sample_yaml = (
+            "apiVersion: apps/v1\n"
+            "kind: Deployment\n"
+            "metadata:\n"
+            "  name: lab-app\n"
+            "spec:\n"
+            "  template:\n"
+            "    spec:\n"
+            "      containers:\n"
+            "      - name: custom-nginx\n"
+            "        command: ['faulty']\n"
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False, encoding="utf-8") as tmp:
+            tmp.write(sample_yaml)
+            tmp_path = Path(tmp.name)
+
+        try:
+            docs, old_ann, new_ann = update_manifest_for_restart(
+                tmp_path,
+                deployment_name="lab-app",
+                container_name="custom-nginx"
+            )
+            self.assertIsNotNone(new_ann)
+            dep = docs[0]
+            self.assertEqual(
+                dep["spec"]["template"]["metadata"]["annotations"]["ai-remediation/restarted-at"],
+                new_ann
+            )
+            self.assertEqual(
+                dep["spec"]["template"]["spec"]["containers"][0]["command"],
+                ["nginx", "-g", "daemon off;"]
+            )
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+    def test_update_manifest_custom_workload_missing_raises_error(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False, encoding="utf-8") as tmp:
+            tmp.write("apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: other-app\n")
+            tmp_path = Path(tmp.name)
+
+        try:
+            with self.assertRaises(ValueError):
+                update_manifest_for_restart(
+                    tmp_path,
+                    deployment_name="lab-app",
+                    container_name="nginx"
+                )
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+    def test_apply_gitops_remediation_custom_manifest_not_found(self):
+        res = apply_gitops_remediation(
+            "restart_pod",
+            manifest_path=Path("nonexistent/lab-app.yaml")
+        )
+        self.assertFalse(res)
+        self.assertIn("Manifest not found", res.message)
+
+
 if __name__ == "__main__":
     unittest.main()

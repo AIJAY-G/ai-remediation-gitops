@@ -6,12 +6,25 @@ from gitops_remediation import apply_gitops_remediation
 from validator import validate_remediation
 
 
-def main():
+def main(
+    namespace=None,
+    deployment_name=None,
+    manifest_path=None,
+    container_name=None,
+    application_name=None
+):
     print("=== AI Kubernetes Remediation Authorization ===")
     print()
 
+    target_namespace = namespace or "ai-remediation"
+    target_deployment = deployment_name or "demo-app"
+    target_app = application_name or "ai-remediation"
+
     # 1. Detect incidents
-    incidents = detect_incident()
+    if namespace is not None:
+        incidents = detect_incident(namespace=namespace)
+    else:
+        incidents = detect_incident()
 
     if not incidents:
         print("No incident detected.")
@@ -101,7 +114,15 @@ def main():
     print()
     print("Executing authorized GitOps remediation...")
 
-    result = apply_gitops_remediation(proposal["action"])
+    if manifest_path is not None or deployment_name is not None or container_name is not None:
+        result = apply_gitops_remediation(
+            proposal["action"],
+            manifest_path=manifest_path,
+            deployment_name=deployment_name,
+            container_name=container_name
+        )
+    else:
+        result = apply_gitops_remediation(proposal["action"])
 
     if not result:
         print(
@@ -117,14 +138,18 @@ def main():
     print("Post-Remediation Validation")
     print("---------------------------")
 
-    validation_success = validate_remediation(
-        namespace="ai-remediation",
-        deployment_name="demo-app",
-        expected_commit=getattr(result, "commit", None),
-        expected_branch=getattr(result, "branch", None),
-        timeout=300,
-        interval=5
-    )
+    validate_kwargs = {
+        "namespace": target_namespace,
+        "deployment_name": target_deployment,
+        "expected_commit": getattr(result, "commit", None),
+        "expected_branch": getattr(result, "branch", None),
+        "timeout": 300,
+        "interval": 5,
+    }
+    if application_name is not None:
+        validate_kwargs["application_name"] = application_name
+
+    validation_success = validate_remediation(**validate_kwargs)
 
     if validation_success:
         print()
@@ -135,4 +160,21 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description="KubeGuard AI Remediation")
+    parser.add_argument("--namespace", default=None, help="Kubernetes namespace (default: ai-remediation)")
+    parser.add_argument("--deployment", default=None, help="Target deployment name (default: demo-app)")
+    parser.add_argument("--manifest", default=None, help="Path to GitOps manifest (default: gitops/demo-app.yaml)")
+    parser.add_argument("--container", default=None, help="Target container name (default: nginx)")
+    parser.add_argument("--app", default=None, help="Argo CD application name (default: ai-remediation)")
+    args = parser.parse_args()
+
+    main(
+        namespace=args.namespace,
+        deployment_name=args.deployment,
+        manifest_path=Path(args.manifest) if args.manifest else None,
+        container_name=args.container,
+        application_name=args.app
+    )

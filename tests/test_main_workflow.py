@@ -399,5 +399,56 @@ class TestInvalidOrUnsupportedProposal(unittest.TestCase):
         mock_gitops.assert_not_called()
 
 
+class TestCustomWorkloadWorkflow(unittest.TestCase):
+    """Workflow supports isolated namespaces and custom workloads."""
+
+    @patch(PATCH_VALIDATE, return_value=True)
+    @patch(PATCH_GITOPS, return_value=_successful_gitops_result())
+    @patch(PATCH_INPUT, return_value="yes")
+    @patch(PATCH_CALCULATE, return_value=(0.10, "AUTO_EXECUTE"))
+    @patch(PATCH_GENERATE, return_value=VALID_PROPOSAL)
+    @patch(PATCH_SELECT, return_value=SAMPLE_INCIDENT)
+    @patch(PATCH_DETECT, return_value=[SAMPLE_INCIDENT])
+    def test_custom_parameters_forwarded(
+        self,
+        mock_detect,
+        mock_select,
+        mock_generate,
+        mock_calculate,
+        mock_input,
+        mock_gitops,
+        mock_validate,
+    ):
+        from pathlib import Path
+        custom_manifest = Path("gitops-lab/lab-app.yaml")
+        main(
+            namespace="kube-guard-lab",
+            deployment_name="lab-app",
+            manifest_path=custom_manifest,
+            container_name="nginx",
+            application_name="kube-guard-lab"
+        )
+        mock_detect.assert_called_once_with(namespace="kube-guard-lab")
+        mock_gitops.assert_called_once_with(
+            "restart_pod",
+            manifest_path=custom_manifest,
+            deployment_name="lab-app",
+            container_name="nginx"
+        )
+        mock_validate.assert_called_once()
+        self.assertEqual(
+            mock_validate.call_args.kwargs.get("namespace"),
+            "kube-guard-lab"
+        )
+        self.assertEqual(
+            mock_validate.call_args.kwargs.get("deployment_name"),
+            "lab-app"
+        )
+        self.assertEqual(
+            mock_validate.call_args.kwargs.get("application_name"),
+            "kube-guard-lab"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
