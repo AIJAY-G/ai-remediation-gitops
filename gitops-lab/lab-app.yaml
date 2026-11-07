@@ -23,9 +23,9 @@ spec:
       - name: nginx
         image: nginx:latest
         command:
-        - nginx
-        - -g
-        - daemon off;
+        - /bin/sh
+        - -c
+        - echo intentional failure in lab-app; exit 1
         ports:
         - containerPort: 80
 ---
