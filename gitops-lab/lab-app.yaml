@@ -17,15 +17,15 @@ spec:
         app: lab-app
         environment: isolation-lab
       annotations:
-        ai-remediation/restarted-at: 2026-11-03T10:10:28.291863+00:00-5e9e9748cf3d
+        ai-remediation/restarted-at: 2026-11-07T18:25:06.097419+00:00-2ae3eaa7b54c
     spec:
       containers:
       - name: nginx
         image: nginx:latest
         command:
-        - /bin/sh
-        - -c
-        - echo intentional failure in lab-app; exit 1
+        - nginx
+        - -g
+        - daemon off;
         ports:
         - containerPort: 80
 ---
