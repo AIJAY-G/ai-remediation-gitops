@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:nonexistent-tag-v999
+        image: nginx:latest
         command:
         - nginx
         - -g
