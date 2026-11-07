@@ -129,6 +129,41 @@ def detect_incident(namespace=NAMESPACE):
                 except Exception:
                     pass
 
+            # Optional container log collection (tail lines for RCA)
+            try:
+                log_args = {
+                    "name": pod_name,
+                    "namespace": target_namespace,
+                    "tail_lines": 25,
+                    "_request_timeout": 5,
+                }
+                if failing_container_name and failing_container_name != "unknown":
+                    log_args["container"] = failing_container_name
+                raw_logs = v1.read_namespaced_pod_log(**log_args)
+                if raw_logs and isinstance(raw_logs, str) and raw_logs.strip():
+                    evidence["pod_logs"] = raw_logs.strip()
+            except Exception:
+                pass
+
+            # Optional warning event collection
+            try:
+                events_obj = v1.list_namespaced_event(
+                    target_namespace,
+                    field_selector=f"involvedObject.name={pod_name}",
+                    _request_timeout=5,
+                )
+                warning_events = []
+                for evt in getattr(events_obj, "items", []) or []:
+                    evt_type = getattr(evt, "type", "")
+                    reason = getattr(evt, "reason", "")
+                    msg = getattr(evt, "message", "")
+                    if evt_type == "Warning" or reason in ("BackOff", "Failed", "Unhealthy"):
+                        warning_events.append(f"{reason}: {msg}")
+                if warning_events:
+                    evidence["events"] = warning_events
+            except Exception:
+                pass
+
             incidents.append({
                 "incident_id": f"INC-{pod_name}",
                 "incident_type": "pod_failure",

@@ -463,5 +463,96 @@ def apply_gitops_remediation(
     )
 
 
+def apply_gitops_rollback(target_commit=None, branch=None, manifest_path=None):
+    """
+    Rolls back a GitOps remediation by reverting the target commit (or HEAD)
+    and pushing to origin, triggering Argo CD to reconcile to the prior state.
+    Returns RemediationResult.
+    """
+    target_branch = branch or get_current_branch()
+    if not target_branch or target_branch == "main":
+        print("Refusing rollback: active branch must be a development branch (not main or detached).")
+        return RemediationResult(
+            success=False,
+            branch=target_branch,
+            message="Refusing rollback on main or detached HEAD"
+        )
+
+    commit_to_revert = target_commit or get_head_commit()
+    if not commit_to_revert:
+        return RemediationResult(
+            success=False,
+            branch=target_branch,
+            message="No commit available to revert."
+        )
+
+    print(f"Initiating GitOps rollback for commit {commit_to_revert[:7]} on branch '{target_branch}'...")
+
+    try:
+        run_command([
+            "git",
+            "revert",
+            "--no-edit",
+            commit_to_revert
+        ])
+        rollback_commit = get_head_commit()
+    except subprocess.CalledProcessError as err:
+        try:
+            run_command(["git", "revert", "--abort"])
+        except Exception:
+            pass
+        err_msg = err.stderr.strip() if err.stderr else str(err)
+        print(f"Git revert failed during rollback: {err_msg}")
+        return RemediationResult(
+            success=False,
+            branch=target_branch,
+            message=f"Git revert failed: {err_msg}"
+        )
+
+    if manifest_path:
+        t_manifest = Path(manifest_path)
+        if t_manifest.exists():
+            try:
+                run_command(["kubectl", "apply", "--dry-run=client", "-f", str(t_manifest)])
+            except Exception:
+                pass
+
+    try:
+        run_command([
+            "git",
+            "push",
+            "origin",
+            target_branch
+        ])
+    except subprocess.CalledProcessError as err:
+        err_msg = err.stderr.strip() if err.stderr else str(err)
+        print(f"Git push failed for rollback commit '{rollback_commit[:7]}': {err_msg}")
+        return RemediationResult(
+            success=False,
+            commit=rollback_commit,
+            branch=target_branch,
+            message=f"Git push failed: {err_msg}",
+            unpushed_commit=rollback_commit
+        )
+
+    if not is_commit_pushed(rollback_commit, target_branch):
+        print(f"Rollback push could not be confirmed on origin/{target_branch}.")
+        return RemediationResult(
+            success=False,
+            commit=rollback_commit,
+            branch=target_branch,
+            message=f"Commit {rollback_commit[:7]} not confirmed on origin/{target_branch}",
+            unpushed_commit=rollback_commit
+        )
+
+    print(f"GitOps rollback successfully pushed ({rollback_commit[:7]}) to {target_branch}.")
+    return RemediationResult(
+        success=True,
+        commit=rollback_commit,
+        branch=target_branch,
+        message=f"Rollback committed and pushed to {target_branch}"
+    )
+
+
 if __name__ == "__main__":
     apply_gitops_remediation("restart_pod")

@@ -2,6 +2,11 @@ import time
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 
+try:
+    from prometheus_client import PrometheusClient
+except ImportError:
+    PrometheusClient = None
+
 
 def get_current_git_commit():
     """Helper to get current git commit if validator is run standalone."""
@@ -188,6 +193,16 @@ def validate_remediation(
             print("GitOps and Kubernetes remediation completed successfully.")
             if expected_commit:
                 print(f"Verified synchronized commit: {sync_revision}")
+
+            if PrometheusClient is not None:
+                try:
+                    p_client = PrometheusClient()
+                    p_restarts = p_client.get_container_restart_count(namespace, "nginx")
+                    if p_restarts is not None:
+                        print(f"Prometheus Telemetry: Verified container restart count = {p_restarts}")
+                except Exception:
+                    pass
+
             return True
 
         time.sleep(interval)

@@ -1,13 +1,14 @@
 
 import json
 import math
+import os
 import urllib.error
 import urllib.request
 
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "llama3.1:8b"
-TIMEOUT_SECONDS = 90
+TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT", "180"))
 
 SUPPORTED_INCIDENTS = {
     "pod_failure",
@@ -87,17 +88,37 @@ def generate_remediation(incident):
             f"Unsupported incident type: {incident_type}"
         )
 
-    prompt = f"""
-You are a Kubernetes remediation proposal generator.
+    context_lines = [f"Incident type: {incident_type}"]
+    if isinstance(incident, dict):
+        res_name = incident.get("resource_name")
+        if res_name:
+            context_lines.append(f"Resource: {incident.get('resource_type', 'Resource')}/{res_name}")
+        ev = incident.get("evidence") or {}
+        if ev.get("failure_reason"):
+            context_lines.append(f"Failure reason: {ev.get('failure_reason')}")
+        if ev.get("restart_count") is not None:
+            context_lines.append(f"Container restart count: {ev.get('restart_count')}")
+        if ev.get("prometheus_restarts") is not None:
+            context_lines.append(f"Prometheus restart telemetry: {ev.get('prometheus_restarts')}")
+        if ev.get("events"):
+            context_lines.append("Recent warning events: " + "; ".join(ev["events"][:3]))
+        if ev.get("pod_logs"):
+            log_snippet = ev["pod_logs"][-500:]
+            context_lines.append(f"Container logs (tail):\n{log_snippet}")
 
-Analyze this incident:
-Incident type: {incident_type}
+    incident_context = "\n".join(context_lines)
+
+    prompt = f"""
+You are an expert Kubernetes AIOps remediation generator.
+
+Analyze this incident, understand the failure, and determine root cause:
+{incident_context}
 
 Return ONLY one JSON object with exactly these fields:
 {{
   "incident": "{incident_type}",
   "action": "restart_pod",
-  "description": "Short explanation of the proposed action",
+  "description": "Root Cause Analysis (RCA) and explanation of why this action is safe and appropriate",
   "confidence": 0.0,
   "uncertainty": 0.0,
   "policy_compliance": 0.0,
@@ -142,27 +163,32 @@ These numerical values are estimates, not verified facts.
         method="POST",
     )
 
-    try:
-        with urllib.request.urlopen(
-            request,
-            timeout=TIMEOUT_SECONDS,
-        ) as response:
-            result = json.loads(response.read().decode("utf-8"))
+    last_exc = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=TIMEOUT_SECONDS,
+            ) as response:
+                result = json.loads(response.read().decode("utf-8"))
 
-        content = result["message"]["content"]
-        proposal = json.loads(content)
+            content = result["message"]["content"]
+            proposal = json.loads(content)
+            return _validate_proposal(proposal, incident_type)
 
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise ProposalError(
-            f"Ollama connection failed: {exc}"
-        ) from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_exc = exc
+            if attempt == 0:
+                print("Ollama connection timed out or is warming up; retrying request...")
+                continue
+            raise ProposalError(
+                f"Ollama connection failed: {exc}"
+            ) from exc
 
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ProposalError(
-            f"Invalid Ollama response: {exc}"
-        ) from exc
-
-    return _validate_proposal(proposal, incident_type)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ProposalError(
+                f"Invalid Ollama response: {exc}"
+            ) from exc
 
 
 if __name__ == "__main__":
