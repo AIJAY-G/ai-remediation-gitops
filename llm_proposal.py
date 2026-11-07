@@ -7,7 +7,7 @@ import urllib.request
 
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "llama3.1:8b"
+MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT", "180"))
 
 SUPPORTED_INCIDENTS = {
@@ -151,8 +151,10 @@ These numerical values are estimates, not verified facts.
         ],
         "format": "json",
         "stream": False,
+        "keep_alive": -1,
         "options": {
             "temperature": 0.1,
+            "num_predict": 160,
         },
     }
 
