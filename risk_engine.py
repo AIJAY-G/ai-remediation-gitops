@@ -11,7 +11,12 @@ PROTECTED_NAMESPACES = {
     "cert-manager",
 }
 
-ALLOWED_POLICY_ACTIONS = {"restart_pod"}
+ALLOWED_POLICY_ACTIONS = {
+    "restart_pod",
+    "rollback_image",
+    "scale_replicas",
+    "update_memory_limit",
+}
 
 
 def evaluate_policy_compliance(action, namespace=None, manifest_dict=None):

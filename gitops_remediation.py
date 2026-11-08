@@ -210,6 +210,12 @@ def generate_restart_annotation():
     return f"{now_utc}-{unique_suffix}"
 
 
+def parse_manifest_documents(manifest_path=MANIFEST):
+    """Loads and returns all YAML documents from the specified manifest file."""
+    p = Path(manifest_path)
+    return list(yaml.safe_load_all(p.read_text(encoding="utf-8")))
+
+
 def update_manifest_for_restart(
     manifest_path=MANIFEST,
     restart_id=None,
@@ -284,13 +290,89 @@ def write_manifest_documents(documents, manifest_path=MANIFEST):
         )
 
 
+SUPPORTED_GITOPS_ACTIONS = {
+    "restart_pod",
+    "rollback_image",
+    "scale_replicas",
+    "update_memory_limit",
+}
+
+
+def update_manifest_action(
+    manifest_path=MANIFEST,
+    action="restart_pod",
+    deployment_name=EXPECTED_DEPLOYMENT,
+    container_name=EXPECTED_CONTAINER,
+    restart_id=None
+):
+    """
+    Applies the specified enterprise remediation action to the GitOps manifest document.
+    Supports restart_pod, rollback_image, scale_replicas, and update_memory_limit.
+    """
+    if action == "restart_pod":
+        return update_manifest_for_restart(
+            manifest_path=manifest_path,
+            deployment_name=deployment_name,
+            container_name=container_name,
+            restart_id=restart_id
+        )
+
+    restart_id = restart_id or generate_restart_annotation()
+    documents = parse_manifest_documents(manifest_path)
+    deployment_found = False
+    container_found = False
+    old_val = None
+
+    for doc in documents:
+        if (
+            isinstance(doc, dict)
+            and doc.get("kind") == "Deployment"
+            and doc.get("metadata", {}).get("name") == deployment_name
+        ):
+            deployment_found = True
+            template = doc.setdefault("spec", {}).setdefault("template", {})
+            metadata = template.setdefault("metadata", {})
+            annotations = metadata.setdefault("annotations", {})
+            annotations["ai-remediation/restarted-at"] = str(restart_id)
+
+            if action == "scale_replicas":
+                current_replicas = doc.get("spec", {}).get("replicas", 1)
+                old_val = current_replicas
+                doc["spec"]["replicas"] = max(1, current_replicas + 1)
+                container_found = True
+                continue
+
+            containers = template.setdefault("spec", {}).setdefault("containers", [])
+            for container in containers:
+                if isinstance(container, dict) and container.get("name") == container_name:
+                    container_found = True
+                    if action == "rollback_image":
+                        old_val = container.get("image")
+                        container["image"] = "nginx:latest"
+                        container["command"] = ["nginx", "-g", "daemon off;"]
+                    elif action == "update_memory_limit":
+                        resources = container.setdefault("resources", {})
+                        limits = resources.setdefault("limits", {})
+                        old_val = limits.get("memory")
+                        limits["memory"] = "256Mi"
+                        requests = resources.setdefault("requests", {})
+                        requests["memory"] = "128Mi"
+
+    if not deployment_found or not container_found:
+        raise ValueError(
+            f"Expected Deployment '{deployment_name}' or container '{container_name}' not found in manifest."
+        )
+
+    return documents, old_val, str(restart_id)
+
+
 def apply_gitops_remediation(
     action,
     manifest_path=None,
     deployment_name=None,
     container_name=None
 ):
-    if action != "restart_pod":
+    if action not in SUPPORTED_GITOPS_ACTIONS:
         print(f"Unsupported remediation: {action}")
         return RemediationResult(success=False, message=f"Unsupported action: {action}")
 
@@ -321,10 +403,11 @@ def apply_gitops_remediation(
         print(f"Error checking git staging status: {err}")
         return RemediationResult(success=False, branch=branch, message=str(err))
 
-    # Update the manifest with a unique restart annotation
+    # Update the manifest according to the authorized action
     try:
-        documents, old_annotation, new_annotation = update_manifest_for_restart(
+        documents, old_annotation, new_annotation = update_manifest_action(
             target_manifest,
+            action=action,
             deployment_name=target_deployment,
             container_name=target_container
         )

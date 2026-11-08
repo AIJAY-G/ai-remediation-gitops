@@ -5,6 +5,9 @@ from llm_proposal import generate_remediation, ProposalError
 from risk_engine import calculate_risk, evaluate_policy_compliance
 from gitops_remediation import apply_gitops_remediation, apply_gitops_rollback
 from validator import validate_remediation
+from audit_logger import log_audit_event
+from rbac import get_current_operator, authorize_approval
+from chatops import send_chatops_notification
 
 
 def main(
@@ -107,10 +110,67 @@ def main(
         print(f"Risk Engine Decision: {decision}")
 
         # 4. Authorization Decision Engine
+        operator_user, operator_role = get_current_operator()
+
+        # Send Enterprise ChatOps alert
+        send_chatops_notification(
+            primary_incident,
+            proposal,
+            risk,
+            decision
+        )
+
         if decision == "REJECT":
             print()
             print("Remediation rejected by risk assessment.")
+            log_audit_event(
+                incident_id=primary_incident.get("incident_id", "unknown"),
+                resource=f"{target_namespace}/{primary_incident.get('resource_name', 'unknown')}",
+                failure_reason=evidence.get("failure_reason", "unknown"),
+                action=proposal["action"],
+                risk_score=risk,
+                risk_vector={
+                    "confidence": proposal["confidence"],
+                    "uncertainty": proposal["uncertainty"],
+                    "policy_compliance": effective_compliance,
+                    "reversibility": proposal["reversibility"],
+                    "blast_radius": proposal["blast_radius"],
+                },
+                policy_status=policy_message,
+                decision="REJECTED_BY_ENGINE",
+                authorized_by=operator_user,
+                authorizer_role=operator_role,
+                container_logs=evidence.get("pod_logs"),
+                description=proposal.get("description"),
+            )
             return
+
+        # Check Enterprise RBAC clearance
+        rbac_ok, rbac_msg = authorize_approval(operator_role, decision)
+        if not rbac_ok:
+            print()
+            print(f"RBAC Authorization Failure: {rbac_msg}")
+            log_audit_event(
+                incident_id=primary_incident.get("incident_id", "unknown"),
+                resource=f"{target_namespace}/{primary_incident.get('resource_name', 'unknown')}",
+                failure_reason=evidence.get("failure_reason", "unknown"),
+                action=proposal["action"],
+                risk_score=risk,
+                risk_vector={
+                    "confidence": proposal["confidence"],
+                    "uncertainty": proposal["uncertainty"],
+                    "policy_compliance": effective_compliance,
+                    "reversibility": proposal["reversibility"],
+                    "blast_radius": proposal["blast_radius"],
+                },
+                policy_status=policy_message,
+                decision=f"DENIED_BY_RBAC: {rbac_msg}",
+                authorized_by=operator_user,
+                authorizer_role=operator_role,
+                container_logs=evidence.get("pod_logs"),
+                description=proposal.get("description"),
+            )
+            return False
 
         can_auto_execute = auto_execute or os.getenv("KUBEGUARD_AUTO_EXECUTE", "").strip().lower() in ("true", "1", "yes")
 
@@ -126,6 +186,7 @@ def main(
             print("-----------------------")
             print("LLM-generated risk scores require human verification.")
             print(f"Effective Decision: {effective_decision}")
+            print(f"Authorized Operator: {operator_user} (Role: {operator_role})")
 
             env_approval = os.getenv("KUBEGUARD_APPROVAL")
             if env_approval:
@@ -138,6 +199,26 @@ def main(
 
             if approval != "yes":
                 print("Human approval denied. No remediation executed.")
+                log_audit_event(
+                    incident_id=primary_incident.get("incident_id", "unknown"),
+                    resource=f"{target_namespace}/{primary_incident.get('resource_name', 'unknown')}",
+                    failure_reason=evidence.get("failure_reason", "unknown"),
+                    action=proposal["action"],
+                    risk_score=risk,
+                    risk_vector={
+                        "confidence": proposal["confidence"],
+                        "uncertainty": proposal["uncertainty"],
+                        "policy_compliance": effective_compliance,
+                        "reversibility": proposal["reversibility"],
+                        "blast_radius": proposal["blast_radius"],
+                    },
+                    policy_status=policy_message,
+                    decision="DENIED_BY_HUMAN",
+                    authorized_by=operator_user,
+                    authorizer_role=operator_role,
+                    container_logs=evidence.get("pod_logs"),
+                    description=proposal.get("description"),
+                )
                 return
 
             print("Human approval granted.")
@@ -182,6 +263,30 @@ def main(
             validate_kwargs["application_name"] = application_name
 
         validation_success = validate_remediation(**validate_kwargs)
+
+        # Record event in immutable compliance audit ledger
+        log_audit_event(
+            incident_id=primary_incident.get("incident_id", "unknown"),
+            resource=f"{target_namespace}/{target_deployment}",
+            failure_reason=evidence.get("failure_reason", "unknown"),
+            action=proposal["action"],
+            risk_score=risk,
+            risk_vector={
+                "confidence": proposal["confidence"],
+                "uncertainty": proposal["uncertainty"],
+                "policy_compliance": effective_compliance,
+                "reversibility": proposal["reversibility"],
+                "blast_radius": proposal["blast_radius"],
+            },
+            policy_status=policy_message,
+            decision="AUTHORIZED_AND_EXECUTED",
+            authorized_by=operator_user,
+            authorizer_role=operator_role,
+            git_commit=getattr(result, "commit", None),
+            validation_status="SUCCESS" if validation_success else "FAILED",
+            container_logs=evidence.get("pod_logs"),
+            description=proposal.get("description"),
+        )
 
         if validation_success:
             print()

@@ -16,7 +16,12 @@ SUPPORTED_INCIDENTS = {
     "pod_restart",
 }
 
-ALLOWED_ACTIONS = {"restart_pod"}
+ALLOWED_ACTIONS = {
+    "restart_pod",
+    "rollback_image",
+    "scale_replicas",
+    "update_memory_limit",
+}
 
 RISK_FIELDS = (
     "confidence",
@@ -128,7 +133,8 @@ Return ONLY one JSON object with exactly these fields:
 
 All five numerical values must be between 0.0 and 1.0.
 
-Only propose restart_pod.
+Allowed actions: restart_pod, rollback_image, update_memory_limit, scale_replicas.
+Choose the action matching the incident type (default: restart_pod).
 Do not include shell commands, Kubernetes commands,
 additional fields, markdown, or text outside the JSON.
 These numerical values are estimates, not verified facts.
