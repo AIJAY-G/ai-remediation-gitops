@@ -6,8 +6,10 @@ import urllib.error
 import urllib.request
 
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_URL = os.getenv("OLLAMA_URL", f"{OLLAMA_HOST}/api/chat")
 MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+OLLAMA_MODEL = MODEL
 TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT", "180"))
 
 SUPPORTED_INCIDENTS = {
