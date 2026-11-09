@@ -111,7 +111,7 @@ def launch_web_dashboard():
     print(f"\n{GREEN}{BOLD}>>> Launching KubeGuard AI Enterprise Dashboard...{RESET}")
     print(f"{CYAN}Opening browser at: http://localhost:8501{RESET}")
     print(f"{DIM}Press Ctrl+C in terminal when ready to stop dashboard.{RESET}\n")
-    cmd = ["streamlit", "run", "dashboard.py"]
+    cmd = [sys.executable, "-m", "streamlit", "run", "dashboard.py"]
     try:
         subprocess.run(cmd)
     except KeyboardInterrupt:
