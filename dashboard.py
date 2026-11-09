@@ -391,7 +391,7 @@ with tab_gitops:
         st.markdown(f"**Current Operator:** `{operator_name}` &bull; **Active Role:** `{role_selection}`")
 
         # Evaluate authorization
-        is_authorized, auth_msg = authorize_approval(operator_name, role_selection, decision)
+        is_authorized, auth_msg = authorize_approval(role_selection, decision)
 
         if is_authorized:
             st.success(f"✅ **Clearance Confirmed:** {auth_msg}")

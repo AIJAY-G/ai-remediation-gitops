@@ -230,6 +230,53 @@ def detect_incident(namespace=NAMESPACE):
     return incidents
 
 
+def fetch_pod_logs(pod_name, namespace=NAMESPACE, container=None, tail_lines=25):
+    """Fetches the tail logs of a specified pod container."""
+    try:
+        config.load_kube_config()
+    except Exception:
+        pass
+    try:
+        v1 = client.CoreV1Api()
+        kwargs = {
+            "name": pod_name,
+            "namespace": namespace or NAMESPACE,
+            "tail_lines": tail_lines,
+            "_request_timeout": 5,
+        }
+        if container and container != "unknown":
+            kwargs["container"] = container
+        return v1.read_namespaced_pod_log(**kwargs)
+    except Exception:
+        return ""
+
+
+def fetch_pod_events(pod_name, namespace=NAMESPACE):
+    """Fetches warning events related to a specified pod."""
+    try:
+        config.load_kube_config()
+    except Exception:
+        pass
+    try:
+        v1 = client.CoreV1Api()
+        events_obj = v1.list_namespaced_event(
+            namespace or NAMESPACE,
+            field_selector=f"involvedObject.name={pod_name}",
+            _request_timeout=5,
+        )
+        warning_events = []
+        for evt in getattr(events_obj, "items", []) or []:
+            evt_type = getattr(evt, "type", "")
+            reason = getattr(evt, "reason", "")
+            msg = getattr(evt, "message", "")
+            count = getattr(evt, "count", 1) or 1
+            if evt_type == "Warning" or reason in ("BackOff", "Failed", "Unhealthy"):
+                warning_events.append({"reason": reason, "message": msg, "count": count})
+        return warning_events
+    except Exception:
+        return []
+
+
 if __name__ == "__main__":
     incidents = detect_incident()
 
