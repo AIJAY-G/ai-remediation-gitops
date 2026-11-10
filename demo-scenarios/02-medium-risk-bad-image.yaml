@@ -1,0 +1,19 @@
+# ==============================================================================
+# DEMO FAILURE 2A: MEDIUM RISK (Broken Image Tag / ImagePullBackOff)
+# ==============================================================================
+# Failure Signature: ImagePullBackOff / ErrImagePull
+# LLM Diagnosis: Faulty image tag deployed to production.
+# Proposed GitOps Action: rollback_image (Reverts image tag to previous release)
+# Blast Radius: 0.35 (Modifies deployment container image spec)
+# Policy Compliance: 1.0 (Allowed image registry)
+# Reversibility: 0.70 (Requires Git revert to undo)
+# Risk Score: ~0.38 (0.30 <= Risk < 0.60) -> DECISION: HUMAN_APPROVAL
+# Clearance Required: SRE-Lead or Platform-Admin (Developer role blocked)
+# ==============================================================================
+
+spec:
+  template:
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:v999-broken-tag-nonexistent

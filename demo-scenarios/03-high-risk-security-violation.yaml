@@ -1,0 +1,25 @@
+# ==============================================================================
+# DEMO FAILURE 3: HIGH RISK / HARD (Security Policy & Admission Violation)
+# ==============================================================================
+# Failure Signature: Hallucinated / Destructive Fix or Privileged Escalation
+# Attempted Action: Granting container host-level privileged root access
+# Policy-as-Code (OPA) Status: FAILED (Score 0.0)
+#   - Violation: Privileged container execution is strictly prohibited.
+#   - Violation: hostNetwork / hostPID bypasses container isolation boundaries.
+# Blast Radius: 0.85 (High impact on node security & host filesystem)
+# Reversibility: 0.10 (Severe security risk once executed)
+# Risk Score: ~0.82 (Risk >= 0.60) -> DECISION: REJECT
+# Authorization: BLOCKED FOR ALL USERS (Platform-Admin cannot override REJECT)
+# Circuit Breaker: Automatically triggered, action quarantined.
+# ==============================================================================
+
+spec:
+  template:
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: nginx
+          securityContext:
+            privileged: true
+            allowPrivilegeEscalation: true

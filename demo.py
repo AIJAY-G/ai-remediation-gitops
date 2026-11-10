@@ -64,25 +64,26 @@ def run_audit_verification():
 def run_risk_simulator():
     print(f"\n{YELLOW}{BOLD}>>> 5-Factor Risk Engine Decision Matrix Simulation{RESET}\n")
     from risk_engine import calculate_risk
+    from rbac import authorize_approval
 
     scenarios = [
         {
-            "name": "Scenario A: Transient Pod Restart (Standard Routine)",
+            "name": "Scenario 1 (LOW RISK): Transient Pod Restart (CrashLoopBackOff)",
             "conf": 0.95, "uncert": 0.05, "policy": 1.0, "rev": 0.95, "blast": 0.05,
-            "expected": "AUTO_EXECUTE",
-            "desc": "High confidence, deterministic restart annotation, zero blast radius."
+            "role": "Developer",
+            "desc": "Safe restart annotation. Zero spec changes. Developer has full clearance."
         },
         {
-            "name": "Scenario B: Container Memory Limit Increase (OOMKilled)",
-            "conf": 0.80, "uncert": 0.20, "policy": 1.0, "rev": 0.70, "blast": 0.35,
-            "expected": "HUMAN_APPROVAL",
-            "desc": "Alters resource limits in manifest; requires SRE-Lead confirmation."
+            "name": "Scenario 2 (MEDIUM RISK): Memory Quota Increase (OOMKilled 137)",
+            "conf": 0.60, "uncert": 0.40, "policy": 1.0, "rev": 0.60, "blast": 0.55,
+            "role": "SRE-Lead",
+            "desc": "Scales memory limits in Git manifest. Developer blocked; SRE-Lead required."
         },
         {
-            "name": "Scenario C: Privileged Container Escalation or Unknown Fix",
-            "conf": 0.30, "uncert": 0.70, "policy": 0.0, "rev": 0.20, "blast": 0.80,
-            "expected": "REJECT",
-            "desc": "Violates cluster security policy and exceeds blast radius threshold."
+            "name": "Scenario 3 (HIGH RISK): Privileged Container Escalation (Policy Violation)",
+            "conf": 0.30, "uncert": 0.70, "policy": 0.0, "rev": 0.10, "blast": 0.85,
+            "role": "Platform-Admin",
+            "desc": "OPA Policy Violation. Reversibility low. Blocked for all roles."
         }
     ]
 
@@ -95,6 +96,10 @@ def run_risk_simulator():
         
         color = GREEN if decision == "AUTO_EXECUTE" else (YELLOW if decision == "HUMAN_APPROVAL" else RED)
         print(f"  {BOLD}Risk Score:{RESET} {score:.3f} -> {color}{BOLD}DECISION: {decision}{RESET}")
+        
+        is_auth, auth_msg = authorize_approval(sc["role"], decision)
+        auth_color = GREEN if is_auth else RED
+        print(f"  {BOLD}RBAC Test ({sc['role']}):{RESET} {auth_color}{auth_msg}{RESET}")
         print(f"  {DIM}{sc['desc']}{RESET}\n")
 
     input(f"{CYAN}Press Enter to return to menu...{RESET}")

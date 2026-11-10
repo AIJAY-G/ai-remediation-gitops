@@ -1,0 +1,21 @@
+# ==============================================================================
+# DEMO FAILURE 1: LOW RISK (Transient Pod Crash / CrashLoopBackOff)
+# ==============================================================================
+# Failure Signature: Pod crashes repeatedly due to exit code 1.
+# LLM Diagnosis: Transient runtime crash.
+# Proposed GitOps Action: restart_pod (Injects restart timestamp annotation)
+# Blast Radius: 0.05 (Zero manifest config change, only restarts container)
+# Policy Compliance: 1.0 (Fully compliant with cluster policy)
+# Reversibility: 0.95 (Instantly reversible)
+# Risk Score: ~0.08 (< 0.30) -> DECISION: AUTO_EXECUTE
+# ==============================================================================
+
+spec:
+  template:
+    spec:
+      containers:
+        - name: nginx
+          command:
+            - /bin/sh
+            - -c
+            - "echo 'Simulated application crash...'; exit 1"

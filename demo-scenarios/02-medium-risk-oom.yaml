@@ -1,0 +1,23 @@
+# ==============================================================================
+# DEMO FAILURE 2B: MEDIUM RISK (Memory Leak / OOMKilled - Exit Code 137)
+# ==============================================================================
+# Failure Signature: OOMKilled (Exit Code 137)
+# LLM Diagnosis: Container exceeded cgroup memory allocation limit.
+# Proposed GitOps Action: update_memory_limit (Scales limit from 64Mi -> 256Mi)
+# Blast Radius: 0.35 (Modifies cluster compute resource quotas)
+# Policy Compliance: 1.0 (Adheres to namespace ResourceQuota limits)
+# Reversibility: 0.70 (Requires GitOps commit to undo)
+# Risk Score: ~0.35 (0.30 <= Risk < 0.60) -> DECISION: HUMAN_APPROVAL
+# Clearance Required: SRE-Lead or Platform-Admin (Developer role blocked)
+# ==============================================================================
+
+spec:
+  template:
+    spec:
+      containers:
+        - name: nginx
+          resources:
+            limits:
+              memory: 16Mi
+            requests:
+              memory: 16Mi
