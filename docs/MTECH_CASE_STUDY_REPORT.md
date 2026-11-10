@@ -800,60 +800,454 @@ While the platform provides robust self-healing for common operational anomalies
 ---
 
 # APPENDIX A
-# CORE MODULE SOURCE CODE EXCERPTS
+# SOURCE CODE AND CONFIGURATION
 
-The following excerpts document critical architectural components of the KubeGuard AI platform.
+The following excerpts document critical architectural components, mathematical models, and configuration manifests that prove the operation of KubeGuard AI.
 
-### A.1 Deterministic Five-Factor Risk Engine (`risk_engine.py`)
+---
+
+### A.1 LLM Proposal Generation (`llm_proposal.py`)
+
 ```python
-def calculate_risk(confidence, uncertainty, policy_compliance,
-                   reversibility, blast_radius):
+import json
+import math
+import os
+import urllib.error
+import urllib.request
+
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_URL = os.getenv("OLLAMA_URL", f"{OLLAMA_HOST}/api/chat")
+MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+TIMEOUT_SECONDS = int(os.getenv("OLLAMA_TIMEOUT", "180"))
+
+SUPPORTED_INCIDENTS = {"pod_failure", "pod_crash", "pod_restart"}
+ALLOWED_ACTIONS = {"restart_pod", "rollback_image", "scale_replicas", "update_memory_limit"}
+RISK_FIELDS = ("confidence", "uncertainty", "policy_compliance", "reversibility", "blast_radius")
+
+SYSTEM_PROMPT = """You are a specialized Kubernetes remediation system.
+When an incident occurs, you must propose an appropriate remediation action.
+Your response MUST be ONLY valid JSON matching this schema:
+{
+  "incident": "<incident_type>",
+  "action": "<remediation_action>",
+  "description": "<brief description of the fix>",
+  "confidence": <float 0.0-1.0>,
+  "uncertainty": <float 0.0-1.0>,
+  "policy_compliance": <float 0.0-1.0>,
+  "reversibility": <float 0.0-1.0>,
+  "blast_radius": <float 0.0-1.0>
+}
+Allowed actions: restart_pod, rollback_image, update_memory_limit, scale_replicas.
+Do not include shell commands, additional fields, markdown, or text outside the JSON."""
+
+
+def generate_remediation(incident):
+    """Queries local Ollama (llama3.1:8b) with zero cloud data egress."""
+    # Build diagnostic prompt from incident evidence
+    prompt = _build_prompt(incident)
+    
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ],
+        "stream": False,
+        "keep_alive": -1,                     # Pins model in GPU memory for fast inference
+        "options": {
+            "temperature": 0.2,
+            "num_predict": 160               # Bounds token generation
+        }
+    }
+    
+    req = urllib.request.Request(
+        OLLAMA_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    
+    proposal = json.loads(data["message"]["content"].strip())
+    _validate_proposal(proposal, incident.get("incident_type"))
+    return proposal
+
+
+def _validate_proposal(proposal, incident_type):
+    """Enforces defensive schema validation and numerical bounds."""
+    if not isinstance(proposal, dict):
+        raise ProposalError("LLM response must be a JSON object.")
+    
+    required = {"incident", "action", "description", *RISK_FIELDS}
+    if set(proposal.keys()) != required:
+        raise ProposalError("LLM response has missing or unexpected fields.")
+        
+    if proposal["action"] not in ALLOWED_ACTIONS:
+        raise ProposalError(f"Unsupported remediation action: {proposal['action']}")
+        
+    for field in RISK_FIELDS:
+        val = proposal[field]
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val):
+            raise ProposalError(f"Field '{field}' must be a finite number.")
+        if not (0.0 <= val <= 1.0):
+            raise ProposalError(f"Field '{field}' must be between 0.0 and 1.0.")
+```
+
+---
+
+### A.2 Risk Evaluation Logic (`risk_engine.py`)
+
+```python
+import math
+
+PROTECTED_NAMESPACES = {"kube-system", "kube-public", "kube-node-lease", "argocd", "cert-manager"}
+ALLOWED_POLICY_ACTIONS = {"restart_pod", "rollback_image", "scale_replicas", "update_memory_limit"}
+
+
+def evaluate_policy_compliance(action, namespace=None, manifest_dict=None):
+    """Policy-as-Code admission gate enforcing cluster security guardrails."""
+    if not isinstance(action, str) or action not in ALLOWED_POLICY_ACTIONS:
+        return 0.0, f"Policy violation: Action '{action}' is not in allowed catalog."
+        
+    if namespace and namespace.strip().lower() in PROTECTED_NAMESPACES:
+        return 0.0, f"Policy violation: Target namespace '{namespace}' is protected."
+        
+    if manifest_dict and isinstance(manifest_dict, dict):
+        spec = manifest_dict.get("spec", {})
+        template = spec.get("template", {})
+        t_spec = template.get("spec", spec) if isinstance(template, dict) else spec
+        containers = t_spec.get("containers", []) if isinstance(t_spec, dict) else []
+        for c in containers:
+            if isinstance(c, dict):
+                sec = c.get("securityContext", {}) or {}
+                if sec.get("privileged") is True:
+                    return 0.0, "Policy violation: Privileged execution is prohibited."
+                if sec.get("allowPrivilegeEscalation") is True:
+                    return 0.2, "Policy warning: Privilege escalation is discouraged."
+        if isinstance(t_spec, dict):
+            if t_spec.get("hostNetwork") is True or t_spec.get("hostPID") is True:
+                return 0.0, "Policy violation: hostNetwork/hostPID is prohibited."
+                
+    return 1.0, "Policy compliant: Action adheres to cluster security guardrails."
+
+
+def calculate_risk(confidence, uncertainty, policy_compliance, reversibility, blast_radius):
     """
-    Computes the 5-factor risk score:
-      Risk = 0.25 * (1 - confidence)
-           + 0.20 * uncertainty
-           + 0.25 * (1 - policy_compliance)
-           + 0.15 * (1 - reversibility)
-           + 0.15 * blast_radius
+    Computes deterministic 5-factor risk score:
+      Risk = 0.25*(1 - Confidence) 
+           + 0.20*(Uncertainty) 
+           + 0.25*(1 - PolicyCompliance) 
+           + 0.15*(1 - Reversibility) 
+           + 0.15*(BlastRadius)
+           
+    Thresholds:
+      Risk < 0.30:              AUTO_EXECUTE
+      0.30 <= Risk < 0.60:      HUMAN_APPROVAL
+      Risk >= 0.60:             REJECT
     """
     risk = (
-        (1 - confidence) * 0.25
+        (1.0 - confidence) * 0.25
         + uncertainty * 0.20
-        + (1 - policy_compliance) * 0.25
-        + (1 - reversibility) * 0.15
+        + (1.0 - policy_compliance) * 0.25
+        + (1.0 - reversibility) * 0.15
         + blast_radius * 0.15
     )
+    
     if risk < 0.30:
         decision = "AUTO_EXECUTE"
     elif risk < 0.60:
         decision = "HUMAN_APPROVAL"
     else:
         decision = "REJECT"
+        
     return risk, decision
 ```
 
-### A.2 Cryptographic Audit Hash-Chaining (`audit_logger.py`)
+---
+
+### A.3 Kubernetes Monitoring (`k8s_monitor.py`)
+
 ```python
-def log_audit_event(incident_id, resource, failure_reason, action,
-                    risk_score, risk_vector, policy_status, decision,
-                    authorized_by, authorizer_role, git_commit=None, ...):
-    prev_hash = _get_last_record_hash(log_path)
-    now_utc = datetime.now(timezone.utc).isoformat()
-    record_content = (
-        f"{prev_hash}|{now_utc}|{incident_id}|{resource}|{failure_reason}|"
-        f"{action}|{risk_score:.4f}|{policy_status}|{decision}|"
-        f"{authorized_by}|{authorizer_role}|{git_commit or 'NONE'}"
-    )
-    record_hash = _compute_sha256(record_content)
-    # Appends immutable JSON record with prev_hash and record_hash
+from kubernetes import client, config
+from kubernetes.client.exceptions import ApiException
+
+NAMESPACE = "ai-remediation"
+
+
+def detect_incident(namespace=NAMESPACE):
+    """Scans namespace for pod failures, crash loops, and deployment deficits."""
+    target_namespace = namespace or NAMESPACE
+    try:
+        config.load_kube_config()
+        v1 = client.CoreV1Api()
+        apps_v1 = client.AppsV1Api()
+        pods = v1.list_namespaced_pod(target_namespace)
+    except Exception as err:
+        return []
+
+    incidents = []
+    for pod in pods.items:
+        pod_name = pod.metadata.name if pod.metadata else "unknown"
+        pod_status = (pod.status.phase if pod.status else None) or "Unknown"
+        restart_count = 0
+        container_ready = True
+        pod_failure_reason = None
+        failing_container_name = "unknown"
+
+        for container in (pod.status.container_statuses if pod.status else []) or []:
+            c_name = container.name or "unknown"
+            restart_count += container.restart_count or 0
+            if not container.ready:
+                container_ready = False
+
+            waiting = container.state.waiting if (container.state and container.state.waiting) else None
+            if waiting and waiting.reason in ["CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull"]:
+                pod_failure_reason = waiting.reason
+                failing_container_name = c_name
+
+            terminated = container.state.terminated if (container.state and container.state.terminated) else None
+            if not pod_failure_reason and terminated:
+                if terminated.reason in ["OOMKilled", "Error"]:
+                    pod_failure_reason = terminated.reason
+                    failing_container_name = c_name
+
+        if pod_failure_reason:
+            evidence = {
+                "pod_phase": pod_status,
+                "container_ready": container_ready,
+                "restart_count": restart_count,
+                "failure_reason": pod_failure_reason,
+                "container_name": failing_container_name,
+            }
+            # Ingest 25-line container log tail
+            logs = fetch_pod_logs(pod_name, namespace=target_namespace, container=failing_container_name)
+            if logs:
+                evidence["pod_logs"] = logs
+                
+            # Ingest Kubernetes Warning events
+            events = fetch_pod_events(pod_name, namespace=target_namespace)
+            if events:
+                evidence["events"] = [f"{e['reason']}: {e['message']}" for e in events]
+
+            incidents.append({
+                "incident_id": f"INC-{pod_name}",
+                "incident_type": "pod_failure",
+                "severity": "medium",
+                "namespace": target_namespace,
+                "resource_type": "Pod",
+                "resource_name": pod_name,
+                "evidence": evidence
+            })
+
+    return incidents
+
+
+def fetch_pod_logs(pod_name, namespace=NAMESPACE, container=None, tail_lines=25):
+    """Retrieves tail logs of failing container for diagnostic root cause analysis."""
+    try:
+        v1 = client.CoreV1Api()
+        kwargs = {"name": pod_name, "namespace": namespace, "tail_lines": tail_lines, "_request_timeout": 5}
+        if container and container != "unknown":
+            kwargs["container"] = container
+        return v1.read_namespaced_pod_log(**kwargs)
+    except Exception:
+        return ""
 ```
 
-### A.3 Git Remote Ancestry Check (`gitops_remediation.py`)
+---
+
+### A.4 Prometheus Integration (`prometheus_client.py`)
+
 ```python
-def verify_remote_ancestry(branch, target_commit=None):
-    # Verifies local branch is an exact ancestor of origin tracking branch
-    cmd = ["git", "merge-base", "--is-ancestor", commit, f"origin/{branch}"]
-    subprocess.run(cmd, check=True)
+import json
+import os
+import urllib.parse
+import urllib.request
+
+DEFAULT_PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+
+
+class PrometheusClient:
+    """Safe, non-blocking Prometheus telemetry client."""
+
+    def __init__(self, base_url=None, timeout=5.0):
+        self.base_url = (base_url or DEFAULT_PROMETHEUS_URL).rstrip("/")
+        self.timeout = float(timeout)
+
+    def check_health(self) -> bool:
+        """Verifies reachability of the Prometheus endpoint."""
+        try:
+            req = urllib.request.Request(f"{self.base_url}/-/healthy", method="GET")
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
+
+    def query(self, promql: str) -> list[dict]:
+        """Executes instant PromQL query against Prometheus REST API."""
+        encoded = urllib.parse.urlencode({"query": promql})
+        url = f"{self.base_url}/api/v1/query?{encoded}"
+        try:
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            if payload.get("status") == "success":
+                return payload.get("data", {}).get("result", [])
+            return []
+        except Exception:
+            return []
+
+    def get_pod_restart_rate(self, pod_name: str, namespace: str) -> float | None:
+        """Calculates 5-minute restart rate for pod."""
+        query = f'rate(kube_pod_container_status_restarts_total{{pod="{pod_name}",namespace="{namespace}"}}[5m])'
+        results = self.query(query)
+        if results and "value" in results[0]:
+            return float(results[0]["value"][1])
+        return None
+```
+
+---
+
+### A.5 Main Remediation Workflow (`main.py`)
+
+```python
+def main(namespace=None, deployment_name=None, manifest_path=None, auto_execute=False, max_retries=1):
+    target_namespace = namespace or "ai-remediation"
+    target_deployment = deployment_name or "demo-app"
+
+    # 1. Incident Detection & Evidence Packaging
+    incidents = detect_incident(namespace=target_namespace)
+    if not incidents:
+        print("No incident detected.")
+        return
+    primary = select_primary_incident(incidents)
+
+    # 2. Local Ollama LLM Diagnosis (Air-Gapped)
+    proposal = generate_remediation(primary)
+
+    # 3. Policy-as-Code & Risk Calculation
+    policy_score, policy_msg = evaluate_policy_compliance(proposal["action"], namespace=target_namespace)
+    effective_compliance = min(proposal["policy_compliance"], policy_score)
+    risk, decision = calculate_risk(
+        proposal["confidence"], proposal["uncertainty"], effective_compliance,
+        proposal["reversibility"], proposal["blast_radius"]
+    )
+
+    # 4. Fail-Closed Rejection
+    if decision == "REJECT":
+        print("Remediation rejected by risk assessment.")
+        log_audit_event(primary["incident_id"], target_deployment, "REJECTED_BY_ENGINE", proposal, risk)
+        return
+
+    # 5. Enterprise RBAC Clearance
+    user, role = get_current_operator()
+    rbac_ok, rbac_msg = authorize_approval(role, decision)
+    if not rbac_ok:
+        print(f"RBAC Authorization Failure: {rbac_msg}")
+        return False
+
+    # 6. Authorization Safeguard: Autonomous vs. Human Clearance
+    can_auto = auto_execute or os.getenv("KUBEGUARD_AUTO_EXECUTE", "").lower() in ("true", "1")
+    if decision == "AUTO_EXECUTE" and can_auto:
+        print("Authorization Decision: AUTO_EXECUTE (Low Risk)")
+    else:
+        approval = input("Approve this GitOps remediation? (yes/no): ").strip().lower()
+        if approval != "yes":
+            print("Human approval denied. No remediation executed.")
+            return
+
+    # 7. Declarative GitOps Mutation & Remote Push
+    res = apply_gitops_remediation(manifest_path=manifest_path, action=proposal["action"])
+    if not res.success:
+        print(f"GitOps execution failed: {res.message}")
+        return
+
+    # 8. Post-Remediation Validation & Automated Rollback Circuit-Breaker
+    validation = validate_remediation(expected_commit=res.commit, branch=res.branch)
+    if not validation.is_successful:
+        print("Remediation validation failed. Initiating automated GitOps rollback...")
+        apply_gitops_rollback(target_commit=res.commit, branch=res.branch)
+        log_audit_event(primary["incident_id"], target_deployment, "ROLLBACK_TRIGGERED", proposal, risk)
+    else:
+        print("Remediation completed successfully.")
+        log_audit_event(primary["incident_id"], target_deployment, "SUCCESS", proposal, risk, commit=res.commit)
+```
+
+---
+
+### A.6 GitOps Configuration Manifests
+
+#### 1. Argo CD Application Manifest (`argocd-lab-application.yaml`)
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-guard-lab
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/AIJAY-G/ai-remediation-gitops.git
+    targetRevision: phase2-ollama-integration
+    path: gitops-lab
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-guard-lab
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+#### 2. Lab Application Deployment Manifest (`gitops-lab/lab-app.yaml`)
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-app
+  namespace: kube-guard-lab
+  labels:
+    app: lab-app
+    environment: isolation-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lab-app
+  template:
+    metadata:
+      labels:
+        app: lab-app
+        environment: isolation-lab
+      annotations:
+        ai-remediation/restarted-at: '2026-11-07T18:25:06.097419+00:00-2ae3eaa7b54c'
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        command:
+        - nginx
+        - -g
+        - daemon off;
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-app
+  namespace: kube-guard-lab
+  labels:
+    app: lab-app
+spec:
+  selector:
+    app: lab-app
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
 ```
 
 ---
