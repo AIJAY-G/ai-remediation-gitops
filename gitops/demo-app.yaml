@@ -13,7 +13,7 @@ spec:
       labels:
         app: demo-app
       annotations:
-        ai-remediation/restarted-at: 2026-11-10T21:33:27.911315+00:00-e445ccdd19fe
+        ai-remediation/restarted-at: 2026-11-11T02:06:23.763836+00:00-024cd892fba0
     spec:
       containers:
       - name: nginx
